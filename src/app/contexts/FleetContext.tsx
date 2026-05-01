@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import type { TireQualityTier } from "../domain/wearModel";
 
 const STORAGE_KEY = "ecopneu_fleet_v1";
 
@@ -12,6 +13,8 @@ export interface FleetVehicle {
   tireCount: number;
   tireManufacturer: string;
   tireModel: string;
+  /** Classe empírica de qualidade dos pneus (afeta modelo de desgaste). */
+  tireQualityTier: TireQualityTier;
 }
 
 export interface FleetTire {
@@ -38,6 +41,9 @@ function axisForIndex(index: number, total: number): string {
 function normalizeFleetFromStorage(data: unknown): { vehicles: FleetVehicle[]; tires: FleetTire[] } | null {
   const d = data as { vehicles?: unknown[]; tires?: unknown[] } | null;
   if (!d || !Array.isArray(d.vehicles) || !Array.isArray(d.tires)) return null;
+  const tierOk = (t: unknown): t is TireQualityTier =>
+    t === "economico" || t === "intermediario" || t === "premium";
+
   const vehicles = (d.vehicles as Partial<FleetVehicle>[]).map((v) => ({
     id: Number(v.id),
     type: String(v.type ?? ""),
@@ -48,6 +54,7 @@ function normalizeFleetFromStorage(data: unknown): { vehicles: FleetVehicle[]; t
     tireCount: Math.max(0, Number(v.tireCount)),
     tireManufacturer: String(v.tireManufacturer ?? "—"),
     tireModel: String(v.tireModel ?? "—"),
+    tireQualityTier: tierOk(v.tireQualityTier) ? v.tireQualityTier : "intermediario",
   }));
   const tires = (d.tires as Partial<FleetTire>[]).map((t, idx) => ({
     id: Number(t.id) || Date.now() + idx,
@@ -74,6 +81,7 @@ function buildInitialSeed(): { vehicles: FleetVehicle[]; tires: FleetTire[] } {
       tireCount: 10,
       tireManufacturer: "Michelin",
       tireModel: "XZY3",
+      tireQualityTier: "premium",
     },
     {
       id: 2,
@@ -85,6 +93,7 @@ function buildInitialSeed(): { vehicles: FleetVehicle[]; tires: FleetTire[] } {
       tireCount: 4,
       tireManufacturer: "Pirelli",
       tireModel: "Cinturato",
+      tireQualityTier: "intermediario",
     },
     {
       id: 3,
@@ -96,6 +105,7 @@ function buildInitialSeed(): { vehicles: FleetVehicle[]; tires: FleetTire[] } {
       tireCount: 2,
       tireManufacturer: "Pirelli",
       tireModel: "Super City",
+      tireQualityTier: "economico",
     },
   ];
 
@@ -130,6 +140,8 @@ interface FleetContextType {
       vehicleId: number | null;
     }
   ) => void;
+  /** Desconta a mesma % de vida útil em todos os pneus ligados ao veículo (regra A). */
+  applyTripWearToVehicle: (vehicleId: number, lifeDeltaPercent: number) => void;
 }
 
 const FleetContext = createContext<FleetContextType | undefined>(undefined);
@@ -190,6 +202,18 @@ export function FleetProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const applyTripWearToVehicle = useCallback((vehicleId: number, lifeDeltaPercent: number) => {
+    if (!Number.isFinite(lifeDeltaPercent) || lifeDeltaPercent <= 0) return;
+    setFleet((prev) => ({
+      ...prev,
+      tires: prev.tires.map((t) => {
+        if (t.vehicleId !== vehicleId) return t;
+        const next = Math.round(Math.max(0, t.health - lifeDeltaPercent) * 10) / 10;
+        return { ...t, health: next };
+      }),
+    }));
+  }, []);
+
   const addManualTire = useCallback(
     (
       tire: Omit<FleetTire, "id" | "vehicleId"> & {
@@ -217,8 +241,15 @@ export function FleetProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ vehicles, tires, addVehicle, removeVehicle, addManualTire }),
-    [vehicles, tires, addVehicle, removeVehicle, addManualTire]
+    () => ({
+      vehicles,
+      tires,
+      addVehicle,
+      removeVehicle,
+      addManualTire,
+      applyTripWearToVehicle,
+    }),
+    [vehicles, tires, addVehicle, removeVehicle, addManualTire, applyTripWearToVehicle]
   );
 
   return <FleetContext.Provider value={value}>{children}</FleetContext.Provider>;

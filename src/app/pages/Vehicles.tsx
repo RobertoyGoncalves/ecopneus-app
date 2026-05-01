@@ -7,6 +7,7 @@ import { Input } from "../components/Input";
 import { Car, Truck, Bike } from "lucide-react";
 import { useFleet } from "../contexts/FleetContext";
 import { FABRICANTES_PNEU_BR, MARCAS_VEICULO_BR } from "../data/brazilMarcas";
+import type { TireQualityTier } from "../domain/wearModel";
 
 const muiRounded = {
   "& .MuiOutlinedInput-root": {
@@ -28,6 +29,7 @@ export function Vehicles() {
     tireCount: "",
     tireManufacturer: "",
     tireModel: "",
+    tireQualityTier: "intermediario" as TireQualityTier,
   });
 
   const handleTypeChange = (type: string) => {
@@ -60,6 +62,7 @@ export function Vehicles() {
       tireCount,
       tireManufacturer: formData.tireManufacturer.trim(),
       tireModel: formData.tireModel.trim(),
+      tireQualityTier: formData.tireQualityTier,
     });
     setFormData({
       type: "",
@@ -70,6 +73,7 @@ export function Vehicles() {
       tireCount: "",
       tireManufacturer: "",
       tireModel: "",
+      tireQualityTier: "intermediario",
     });
   };
 
@@ -192,7 +196,7 @@ export function Vehicles() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-2">Fabricante do pneu</label>
                 <Autocomplete<string, false, false, true>
@@ -224,6 +228,26 @@ export function Vehicles() {
                 onChange={(e) => setFormData({ ...formData, tireModel: e.target.value })}
                 required
               />
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Linha dos pneus (modelo empírico)
+                </label>
+                <select
+                  value={formData.tireQualityTier}
+                  onChange={(e) =>
+                    setFormData((f) => ({
+                      ...f,
+                      tireQualityTier: e.target.value as TireQualityTier,
+                    }))
+                  }
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  required
+                >
+                  <option value="economico">Econômico — desgaste relativo maior</option>
+                  <option value="intermediario">Intermediário — referência</option>
+                  <option value="premium">Premium — desgaste relativo menor</option>
+                </select>
+              </div>
             </div>
 
             {formData.type === "Caminhão" ? (
@@ -290,7 +314,9 @@ export function Vehicles() {
                   <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Ano</th>
                   <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Placa</th>
                   <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Pneus</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Pneu (fab./modelo)</th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Pneu (fab./modelo / linha)
+                  </th>
                   <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Ações</th>
                 </tr>
               </thead>
@@ -323,6 +349,14 @@ export function Vehicles() {
                     <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{vehicle.tireCount}</td>
                     <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">
                       {vehicle.tireManufacturer} {vehicle.tireModel}
+                      <span className="block text-xs text-gray-500 mt-0.5">
+                        Linha:{" "}
+                        {vehicle.tireQualityTier === "economico"
+                          ? "Econômico"
+                          : vehicle.tireQualityTier === "premium"
+                            ? "Premium"
+                            : "Intermediário"}
+                      </span>
                     </td>
                     <td className="px-4 lg:px-6 py-3 md:py-4">
                       <Button variant="ghost" type="button" onClick={() => removeVehicle(vehicle.id)}>
@@ -352,7 +386,12 @@ export function Vehicles() {
                     </div>
                     <h4 className="font-medium text-gray-900">{vehicle.brand} {vehicle.model}</h4>
                     <p className="text-xs text-gray-500 mt-1">
-                      Pneus: {vehicle.tireManufacturer} {vehicle.tireModel}
+                      Pneus: {vehicle.tireManufacturer} {vehicle.tireModel} • Linha{" "}
+                      {vehicle.tireQualityTier === "economico"
+                        ? "Econômico"
+                        : vehicle.tireQualityTier === "premium"
+                          ? "Premium"
+                          : "Intermediário"}
                     </p>
                   </div>
                 </div>

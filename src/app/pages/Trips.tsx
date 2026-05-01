@@ -4,6 +4,14 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { MapPin } from "lucide-react";
 import { formatVehicleLabel, useFleet } from "../contexts/FleetContext";
+import type { DayPeriod, RoadCondition, TireQualityTier } from "../domain/wearModel";
+import {
+  computeTripLifeConsumptionPercent,
+  curbWeightForVehicleType,
+  NOMINAL_LIFE_KM,
+  temperatureForPeriod,
+  wearSeverityLevel,
+} from "../domain/wearModel";
 
 interface Trip {
   id: number;
@@ -15,12 +23,14 @@ interface Trip {
   type: string;
   hasCargo: boolean;
   date: string;
+  /** % de vida útil consumida nesta viagem (médio por pneu do veículo). */
   estimatedWear: number;
   wearLevel: "Baixo" | "Médio" | "Alto";
   tireCount: number;
+  avgSpeedKmh?: number;
+  roadCondition?: RoadCondition;
+  dayPeriod?: DayPeriod;
 }
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const averageCargoByVehicleType: Record<string, { weight: string; value: string; type: string }> = {
   Carro: { weight: "120", value: "400", type: "Carga Leve" },
@@ -28,47 +38,68 @@ const averageCargoByVehicleType: Record<string, { weight: string; value: string;
   Caminhão: { weight: "12000", value: "8000", type: "Carga Geral" },
 };
 
-const calculateEstimatedWear = (vehicleType: string, distanceValue: string, weightValue: string) => {
-  const distance = Math.max(0, Number(distanceValue) || 0);
-  const weight = Math.max(0, Number(weightValue) || 0);
-
-  if (!distance || !vehicleType) return 0;
-
-  const baseByVehicleType: Record<string, number> = {
-    Carro: 2,
-    Moto: 1.5,
-    Caminhão: 3,
-  };
-  const weightReferenceByType: Record<string, number> = {
-    Carro: 500,
-    Moto: 120,
-    Caminhão: 12000,
-  };
-
-  const typeBase = baseByVehicleType[vehicleType] ?? 2;
-  const distanceFactor = clamp(distance / 300, 0, 12);
-  const weightReference = weightReferenceByType[vehicleType] ?? 500;
-  const normalizedWeight = clamp(weight / weightReference, 0, 3);
-  const weightFactor = 0.7 + normalizedWeight * 0.3;
-
-  const rawWear = typeBase * distanceFactor * weightFactor;
-  return Number(clamp(rawWear, 0, 100).toFixed(1));
-};
-
-const getWearLevel = (estimatedWear: number): "Baixo" | "Médio" | "Alto" => {
-  if (estimatedWear >= 66) return "Alto";
-  if (estimatedWear >= 33) return "Médio";
-  return "Baixo";
+const tierLabels: Record<TireQualityTier, string> = {
+  economico: "Econômico",
+  intermediario: "Intermediário",
+  premium: "Premium",
 };
 
 export function Trips() {
-  const { vehicles } = useFleet();
+  const { vehicles, tires, applyTripWearToVehicle } = useFleet();
 
   const [filterType, setFilterType] = useState("Todos");
   const [trips, setTrips] = useState<Trip[]>([
-    { id: 1, vehicle: "Volvo FH 540 • ABC-1234", vehicleType: "Caminhão", distance: "1245", weight: "25000", value: "8450.00", type: "Carga Geral", hasCargo: true, date: "05/04/2026", estimatedWear: 18.2, wearLevel: "Baixo", tireCount: 10 },
-    { id: 2, vehicle: "Toyota Corolla • XYZ-5678", vehicleType: "Carro", distance: "890", weight: "500", value: "6200.00", type: "Executivo", hasCargo: true, date: "04/04/2026", estimatedWear: 6.8, wearLevel: "Baixo", tireCount: 4 },
-    { id: 3, vehicle: "Honda CG 160 • DEF-9012", vehicleType: "Moto", distance: "120", weight: "0", value: "0", type: "Sem carga", hasCargo: false, date: "02/04/2026", estimatedWear: 0.4, wearLevel: "Baixo", tireCount: 2 },
+    {
+      id: 1,
+      vehicle: "Volvo FH 540 • ABC-1234",
+      vehicleType: "Caminhão",
+      distance: "1245",
+      weight: "25000",
+      value: "8450.00",
+      type: "Carga Geral",
+      hasCargo: true,
+      date: "05/04/2026",
+      estimatedWear: 3.2,
+      wearLevel: "Baixo",
+      tireCount: 10,
+      avgSpeedKmh: 78,
+      roadCondition: "Média",
+      dayPeriod: "tarde",
+    },
+    {
+      id: 2,
+      vehicle: "Toyota Corolla • XYZ-5678",
+      vehicleType: "Carro",
+      distance: "890",
+      weight: "500",
+      value: "6200.00",
+      type: "Executivo",
+      hasCargo: true,
+      date: "04/04/2026",
+      estimatedWear: 2.9,
+      wearLevel: "Baixo",
+      tireCount: 4,
+      avgSpeedKmh: 72,
+      roadCondition: "Boa",
+      dayPeriod: "manha",
+    },
+    {
+      id: 3,
+      vehicle: "Honda CG 160 • DEF-9012",
+      vehicleType: "Moto",
+      distance: "120",
+      weight: "0",
+      value: "0",
+      type: "Sem carga",
+      hasCargo: false,
+      date: "02/04/2026",
+      estimatedWear: 0.5,
+      wearLevel: "Baixo",
+      tireCount: 2,
+      avgSpeedKmh: 55,
+      roadCondition: "Média",
+      dayPeriod: "noite",
+    },
   ]);
 
   const [formData, setFormData] = useState({
@@ -80,6 +111,10 @@ export function Trips() {
     weight: "",
     value: "",
     type: "",
+    avgSpeedKmh: "80",
+    roadCondition: "Média" as RoadCondition,
+    dayPeriod: "manha" as DayPeriod,
+    tireTier: "intermediario" as TireQualityTier,
   });
 
   const vehiclesForType = useMemo(
@@ -91,6 +126,52 @@ export function Trips() {
     formData.fleetVehicleId !== ""
       ? vehicles.find((v) => String(v.id) === formData.fleetVehicleId)
       : undefined;
+
+  const tiresOfSelected = useMemo(
+    () =>
+      selectedFleetVehicle
+        ? tires.filter((t) => t.vehicleId === selectedFleetVehicle.id)
+        : [],
+    [tires, selectedFleetVehicle]
+  );
+
+  const cargoKgCalc = formData.hasCargo ? Math.max(0, Number(formData.weight) || 0) : 0;
+  const tempCelsius = temperatureForPeriod(formData.dayPeriod);
+
+  const lifeConsumedPreview = useMemo(() => {
+    if (!selectedFleetVehicle || !formData.vehicleType) return 0;
+    const d = Math.max(0, Number(formData.distance) || 0);
+    if (!d) return 0;
+    return computeTripLifeConsumptionPercent({
+      vehicleType: formData.vehicleType,
+      distanceKm: d,
+      cargoKg: cargoKgCalc,
+      avgSpeedKmh: Math.max(0, Number(formData.avgSpeedKmh) || 0),
+      temperatureCelsius: tempCelsius,
+      roadCondition: formData.roadCondition,
+      tier: formData.tireTier,
+    });
+  }, [
+    selectedFleetVehicle,
+    formData.vehicleType,
+    formData.distance,
+    cargoKgCalc,
+    formData.avgSpeedKmh,
+    tempCelsius,
+    formData.roadCondition,
+    formData.tireTier,
+  ]);
+
+  const wearLevelPreview = wearSeverityLevel(lifeConsumedPreview);
+  const tireCount = selectedFleetVehicle?.tireCount ?? 0;
+  const minTireHealth =
+    tiresOfSelected.length > 0 ? Math.min(...tiresOfSelected.map((t) => t.health)) : undefined;
+  const minAfterTrip =
+    minTireHealth !== undefined ? minTireHealth - lifeConsumedPreview : undefined;
+
+  const warnHighWear = lifeConsumedPreview >= 6;
+  const warnCriticalTires =
+    minAfterTrip !== undefined && lifeConsumedPreview > 0 && minAfterTrip < 15;
 
   const handleVehicleTypeChange = (vehicleType: string) => {
     setFormData((current) => {
@@ -118,6 +199,7 @@ export function Trips() {
       ...c,
       fleetVehicleId: idStr,
       vehicle: formatVehicleLabel(v),
+      tireTier: v.tireQualityTier,
     }));
   };
 
@@ -140,10 +222,12 @@ export function Trips() {
     });
   };
 
-  const weightForCalculation = formData.hasCargo ? formData.weight : "0";
-  const estimatedWear = calculateEstimatedWear(formData.vehicleType, formData.distance, weightForCalculation);
-  const wearLevel = getWearLevel(estimatedWear);
-  const tireCount = selectedFleetVehicle?.tireCount ?? 0;
+  const curbDisplay = selectedFleetVehicle
+    ? curbWeightForVehicleType(selectedFleetVehicle.type)
+    : null;
+  const nominalKmRef = selectedFleetVehicle
+    ? NOMINAL_LIFE_KM[selectedFleetVehicle.type] ?? null
+    : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,6 +236,20 @@ export function Trips() {
     const finalType = formData.hasCargo ? formData.type : "Sem carga";
 
     if (!selectedFleetVehicle) return;
+
+    const delta = computeTripLifeConsumptionPercent({
+      vehicleType: formData.vehicleType,
+      distanceKm: Math.max(0, Number(formData.distance) || 0),
+      cargoKg: formData.hasCargo ? Math.max(0, Number(formData.weight) || 0) : 0,
+      avgSpeedKmh: Math.max(0, Number(formData.avgSpeedKmh) || 0),
+      temperatureCelsius: tempCelsius,
+      roadCondition: formData.roadCondition,
+      tier: formData.tireTier,
+    });
+
+    if (delta <= 0) return;
+
+    applyTripWearToVehicle(selectedFleetVehicle.id, delta);
 
     const newTrip: Trip = {
       id: Date.now(),
@@ -163,9 +261,12 @@ export function Trips() {
       type: finalType,
       hasCargo: formData.hasCargo,
       date: new Date().toLocaleDateString("pt-BR"),
-      estimatedWear,
-      wearLevel,
+      estimatedWear: delta,
+      wearLevel: wearSeverityLevel(delta),
       tireCount,
+      avgSpeedKmh: Number(formData.avgSpeedKmh) || undefined,
+      roadCondition: formData.roadCondition,
+      dayPeriod: formData.dayPeriod,
     };
     setTrips([newTrip, ...trips]);
     setFormData({
@@ -177,6 +278,10 @@ export function Trips() {
       weight: "",
       value: "",
       type: "",
+      avgSpeedKmh: "80",
+      roadCondition: "Média",
+      dayPeriod: "manha",
+      tireTier: "intermediario",
     });
   };
 
@@ -191,7 +296,6 @@ export function Trips() {
         <p className="text-sm md:text-base text-gray-600">Registre e acompanhe as viagens da sua frota</p>
       </div>
 
-      {/* Add Trip Form */}
       <Card className="mb-6 md:mb-8">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -200,7 +304,10 @@ export function Trips() {
             </div>
             <div>
               <h3 className="text-base md:text-lg font-semibold text-gray-900">Registrar Nova Viagem</h3>
-              <p className="text-xs md:text-sm text-gray-600">Preencha os dados da viagem</p>
+              <p className="text-xs md:text-sm text-gray-600">
+                Modelo empírico: distância, massa total (tara fixa + carga), velocidade, estrada,
+                período (temperatura proxy) e linha dos pneus
+              </p>
             </div>
           </div>
         </CardHeader>
@@ -222,9 +329,7 @@ export function Trips() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-700 mb-2">
-                  Veículo cadastrado
-                </label>
+                <label className="block text-sm text-gray-700 mb-2">Veículo cadastrado</label>
                 <select
                   value={formData.fleetVehicleId}
                   disabled={!formData.vehicleType || vehiclesForType.length === 0}
@@ -253,7 +358,73 @@ export function Trips() {
                 value={formData.distance}
                 onChange={(e) => setFormData({ ...formData, distance: e.target.value })}
                 required
+                min={0}
               />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <Input
+                label="Velocidade média (km/h)"
+                placeholder="80"
+                type="number"
+                min={20}
+                value={formData.avgSpeedKmh}
+                onChange={(e) => setFormData({ ...formData, avgSpeedKmh: e.target.value })}
+                required
+              />
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Condição da estrada</label>
+                <select
+                  value={formData.roadCondition}
+                  onChange={(e) =>
+                    setFormData((f) => ({
+                      ...f,
+                      roadCondition: e.target.value as RoadCondition,
+                    }))
+                  }
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                >
+                  <option value="Boa">Boa</option>
+                  <option value="Média">Média</option>
+                  <option value="Ruim">Ruim</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Período (temperatura ref.)</label>
+                <select
+                  value={formData.dayPeriod}
+                  onChange={(e) =>
+                    setFormData((f) => ({
+                      ...f,
+                      dayPeriod: e.target.value as DayPeriod,
+                    }))
+                  }
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                >
+                  <option value="manha">Manhã — 25 °C</option>
+                  <option value="tarde">Tarde — 30 °C</option>
+                  <option value="noite">Noite — 20 °C</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Linha dos pneus nesta viagem
+                </label>
+                <select
+                  value={formData.tireTier}
+                  onChange={(e) =>
+                    setFormData((f) => ({
+                      ...f,
+                      tireTier: e.target.value as TireQualityTier,
+                    }))
+                  }
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                >
+                  <option value="economico">Econômico ({tierLabels.economico})</option>
+                  <option value="intermediario">Intermediário</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
@@ -285,7 +456,7 @@ export function Trips() {
             {formData.hasCargo && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Input
-                  label="Peso da Carga (kg)"
+                  label="Peso da carga (kg)"
                   placeholder="25000"
                   type="number"
                   value={formData.weight}
@@ -312,43 +483,93 @@ export function Trips() {
             )}
 
             {selectedFleetVehicle?.type === "Caminhão" && (
-              <p className="text-sm text-gray-600 md:col-span-3">
-                Pneus para o cálculo: <span className="font-semibold text-gray-900">{selectedFleetVehicle.tireCount}</span>{" "}
-                (conforme cadastro em Veículos)
+              <p className="text-sm text-gray-600">
+                Pneus do cadastro para repartição da vida útil:{" "}
+                <span className="font-semibold text-gray-900">{selectedFleetVehicle.tireCount}</span>
               </p>
             )}
 
-            {formData.vehicleType && (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+            {selectedFleetVehicle && curbDisplay !== null && (
+              <p className="text-xs text-gray-500">
+                Tara modelo (tipo):{" "}
+                <span className="font-medium text-gray-700">{curbDisplay} kg</span>
+                {nominalKmRef !== null && (
+                  <>
+                    {" "}
+                    · Vida nominal ref.:{" "}
+                    <span className="font-medium text-gray-700">
+                      {(nominalKmRef / 1000).toFixed(0)}k km
+                    </span>
+                  </>
+                )}
+              </p>
+            )}
+
+            {(warnHighWear || warnCriticalTires) && lifeConsumedPreview > 0 && (
+              <div
+                className={`rounded-xl border p-4 space-y-1 ${
+                  warnCriticalTires
+                    ? "bg-red-50 border-red-200 text-red-900"
+                    : "bg-amber-50 border-amber-200 text-amber-900"
+                }`}
+              >
+                {warnHighWear && (
+                  <p className="text-sm font-medium">
+                    Desgaste relativo alto neste cenário (~{lifeConsumedPreview.toFixed(1)}% de vida
+                    por pneu).
+                  </p>
+                )}
+                {warnCriticalTires && (
+                  <p className="text-sm">
+                    Após registrar, a vida mais baixa pode cair para cerca de{" "}
+                    <strong>{minAfterTrip!.toFixed(1)}%</strong> — revise a troca/manutenção.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {formData.vehicleType && selectedFleetVehicle && (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2">
+                <p className="text-sm font-medium text-gray-900">Antes de salvar — pré-visualização</p>
                 <p className="text-sm text-gray-700">
-                  Valor de Desgaste Estimado: <span className="font-semibold text-gray-900">{estimatedWear}%</span>
+                  Consumo estimado de vida útil por pneu (esta viagem):{" "}
+                  <span className="font-semibold text-gray-900">
+                    {lifeConsumedPreview.toFixed(1)}%
+                  </span>
+                  <span
+                    className={`ml-2 inline-flex px-2 py-0.5 rounded-full text-xs ${
+                      wearLevelPreview === "Alto"
+                        ? "bg-red-100 text-red-800"
+                        : wearLevelPreview === "Médio"
+                          ? "bg-yellow-100 text-yellow-900"
+                          : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    {wearLevelPreview}
+                  </span>
                 </p>
                 <p className="text-sm text-gray-700">
-                  Nível de Desgaste: <span className="font-semibold text-gray-900">{wearLevel}</span>
+                  Temperatura proxy: <span className="font-medium">{tempCelsius} °C</span>
                 </p>
                 <p className="text-sm text-gray-700">
-                  Número de Pneus que sofrerão desgaste:{" "}
-                  <span className="font-semibold text-gray-900">{tireCount > 0 ? tireCount : "—"}</span>
-                </p>
-                <p className="text-sm text-gray-700">
-                  Uso de carga: <span className="font-semibold text-gray-900">{formData.hasCargo ? "Sim" : "Não"}</span>
+                  Pneus afetados: <span className="font-semibold">{tireCount}</span> · mesma %
+                  aplicada em todos (regra A)
                 </p>
               </div>
             )}
 
             <Button type="submit" variant="primary">
-              Registrar Viagem
+              Registrar viagem e atualizar pneus
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* Trips Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Viagens Registradas</h3>
+              <h3 className="text-base md:text-lg font-semibold text-gray-900">Viagens registradas</h3>
               <p className="text-xs md:text-sm text-gray-600">{filteredTrips.length} viagens encontrada(s)</p>
             </div>
             <div className="flex items-center gap-2">
@@ -367,21 +588,46 @@ export function Trips() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {/* Desktop Table */}
           <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Veículo</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Tipo</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Distância (km)</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Tem carga?</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Peso (kg)</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Desgaste</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Pneus</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Valor</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Uso</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Data</th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Veículo
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Tipo
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Distância (km)
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Carga?
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Peso carga (kg)
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    V méd (km/h)
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Estrada
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Vida / viagem %
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Pneus
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Valor
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Uso
+                  </th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                    Data
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -392,7 +638,9 @@ export function Trips() {
                       index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                     }`}
                   >
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-900 font-medium">{trip.vehicle}</td>
+                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-900 font-medium">
+                      {trip.vehicle}
+                    </td>
                     <td className="px-4 lg:px-6 py-3 md:py-4">
                       <span className="inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
                         {trip.vehicleType}
@@ -400,7 +648,11 @@ export function Trips() {
                     </td>
                     <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.distance}</td>
                     <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.hasCargo ? "Sim" : "Não"}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{Number(trip.weight).toLocaleString()}</td>
+                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">
+                      {Number(trip.weight).toLocaleString()}
+                    </td>
+                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.avgSpeedKmh ?? "—"}</td>
+                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.roadCondition ?? "—"}</td>
                     <td className="px-4 lg:px-6 py-3 md:py-4">
                       <span className="text-sm font-medium text-gray-900">{trip.estimatedWear}%</span>
                       <span
@@ -431,14 +683,13 @@ export function Trips() {
             </table>
           </div>
 
-          {/* Mobile/Tablet Cards */}
           <div className="lg:hidden space-y-3 p-4">
             {filteredTrips.map((trip) => (
               <div key={trip.id} className="bg-white border border-gray-100 rounded-xl p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900 text-sm md:text-base">{trip.vehicle}</h4>
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
                         {trip.vehicleType}
                       </span>
@@ -456,12 +707,20 @@ export function Trips() {
                     <p className="text-sm font-medium text-gray-900">{trip.hasCargo ? "Sim" : "Não"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Peso</p>
+                    <p className="text-xs text-gray-500">Peso carga</p>
                     <p className="text-sm font-medium text-gray-900">{Number(trip.weight).toLocaleString()} kg</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Desgaste</p>
+                    <p className="text-xs text-gray-500">Vida / viagem</p>
                     <p className="text-sm font-medium text-gray-900">{trip.estimatedWear}% ({trip.wearLevel})</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Vméd</p>
+                    <p className="text-sm font-medium text-gray-900">{trip.avgSpeedKmh ?? "—"} km/h</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Estrada</p>
+                    <p className="text-sm font-medium text-gray-900">{trip.roadCondition ?? "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Pneus afetados</p>
