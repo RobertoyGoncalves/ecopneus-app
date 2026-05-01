@@ -1,25 +1,21 @@
 import { useState } from "react";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Car, Truck, Bike } from "lucide-react";
+import { useFleet } from "../contexts/FleetContext";
+import { FABRICANTES_PNEU_BR, MARCAS_VEICULO_BR } from "../data/brazilMarcas";
 
-interface Vehicle {
-  id: number;
-  type: string;
-  brand: string;
-  model: string;
-  year: string;
-  plate: string;
-  tireCount: number;
-}
+const muiRounded = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "12px",
+  },
+} as const;
 
 export function Vehicles() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([
-    { id: 1, type: "Caminhão", brand: "Volvo", model: "FH 540", year: "2022", plate: "ABC-1234", tireCount: 10 },
-    { id: 2, type: "Carro", brand: "Toyota", model: "Corolla", year: "2023", plate: "XYZ-5678", tireCount: 4 },
-    { id: 3, type: "Moto", brand: "Honda", model: "CG 160", year: "2021", plate: "DEF-9012", tireCount: 2 },
-  ]);
+  const { vehicles, addVehicle, removeVehicle } = useFleet();
 
   const [filterType, setFilterType] = useState("Todos");
 
@@ -30,18 +26,20 @@ export function Vehicles() {
     year: "",
     plate: "",
     tireCount: "",
+    tireManufacturer: "",
+    tireModel: "",
   });
 
   const handleTypeChange = (type: string) => {
     if (type === "Carro") {
-      setFormData({ ...formData, type, tireCount: "4" });
+      setFormData((f) => ({ ...f, type, tireCount: "4" }));
       return;
     }
     if (type === "Moto") {
-      setFormData({ ...formData, type, tireCount: "2" });
+      setFormData((f) => ({ ...f, type, tireCount: "2" }));
       return;
     }
-    setFormData({ ...formData, type, tireCount: "" });
+    setFormData((f) => ({ ...f, type, tireCount: "" }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -53,21 +51,26 @@ export function Vehicles() {
         ? 4
         : 2;
 
-    const newVehicle: Vehicle = {
-      id: Date.now(),
+    addVehicle({
       type: formData.type,
-      brand: formData.brand,
-      model: formData.model,
+      brand: formData.brand.trim(),
+      model: formData.model.trim(),
       year: formData.year,
-      plate: formData.plate,
+      plate: formData.plate.trim().toUpperCase(),
       tireCount,
-    };
-    setVehicles([newVehicle, ...vehicles]);
-    setFormData({ type: "", brand: "", model: "", year: "", plate: "", tireCount: "" });
-  };
-
-  const handleRemove = (id: number) => {
-    setVehicles(vehicles.filter((v) => v.id !== id));
+      tireManufacturer: formData.tireManufacturer.trim(),
+      tireModel: formData.tireModel.trim(),
+    });
+    setFormData({
+      type: "",
+      brand: "",
+      model: "",
+      year: "",
+      plate: "",
+      tireCount: "",
+      tireManufacturer: "",
+      tireModel: "",
+    });
   };
 
   const filteredVehicles = filterType === "Todos"
@@ -116,7 +119,9 @@ export function Vehicles() {
             </div>
             <div>
               <h3 className="text-base md:text-lg font-semibold text-gray-900">Cadastrar Novo Veículo</h3>
-              <p className="text-xs md:text-sm text-gray-600">Adicione um novo veículo à sua frota</p>
+              <p className="text-xs md:text-sm text-gray-600">
+                Pneus com mesmo modelo/fabricante são gerados para a página Pneus
+              </p>
             </div>
           </div>
         </CardHeader>
@@ -137,13 +142,29 @@ export function Vehicles() {
                   <option value="Moto">Moto</option>
                 </select>
               </div>
-              <Input
-                label="Marca"
-                placeholder="Ex: Volvo, Toyota, Honda"
-                value={formData.brand}
-                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                required
-              />
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Marca do veículo</label>
+                <Autocomplete<string, false, false, true>
+                  freeSolo
+                  disablePortal
+                  options={MARCAS_VEICULO_BR.slice()}
+                  sx={muiRounded}
+                  filterOptions={(options, params) =>
+                    options.filter((o) =>
+                      o.toLowerCase().includes(params.inputValue.toLowerCase()))
+                  }
+                  value={formData.brand === "" ? null : formData.brand}
+                  onChange={(_, v) =>
+                    setFormData((f) => ({ ...f, brand: typeof v === "string" ? v : v ?? "" }))}
+                  inputValue={formData.brand}
+                  onInputChange={(_, val) =>
+                    setFormData((f) => ({ ...f, brand: val ?? "" }))}
+                  renderInput={(params) => (
+                    <TextField {...params} required placeholder="Digite ou escolha" size="small" />
+                  )}
+                />
+                <p className="text-xs text-gray-500 mt-1">Lista de marcas populares no Brasil</p>
+              </div>
               <Input
                 label="Modelo"
                 placeholder="Ex: FH 540, Corolla, CG 160"
@@ -171,10 +192,44 @@ export function Vehicles() {
               />
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Fabricante do pneu</label>
+                <Autocomplete<string, false, false, true>
+                  freeSolo
+                  disablePortal
+                  sx={muiRounded}
+                  options={FABRICANTES_PNEU_BR.slice()}
+                  filterOptions={(options, params) =>
+                    options.filter((o) =>
+                      o.toLowerCase().includes(params.inputValue.toLowerCase()))}
+                  value={formData.tireManufacturer === "" ? null : formData.tireManufacturer}
+                  inputValue={formData.tireManufacturer}
+                  onInputChange={(_, val) =>
+                    setFormData((f) => ({ ...f, tireManufacturer: val ?? "" }))}
+                  onChange={(_, v) =>
+                    setFormData((f) => ({
+                      ...f,
+                      tireManufacturer: typeof v === "string" ? v : v ?? "",
+                    }))}
+                  renderInput={(params) => (
+                    <TextField {...params} required placeholder="Ex: Michelin" size="small" />
+                  )}
+                />
+              </div>
+              <Input
+                label="Modelo do pneu"
+                placeholder="Ex: XZY Premium, Cinturato"
+                value={formData.tireModel}
+                onChange={(e) => setFormData({ ...formData, tireModel: e.target.value })}
+                required
+              />
+            </div>
+
             {formData.type === "Caminhão" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
-                  label="Quantidade de Pneus"
+                  label="Quantidade de pneus"
                   placeholder="Ex: 10"
                   type="number"
                   min="4"
@@ -187,14 +242,15 @@ export function Vehicles() {
             ) : formData.type ? (
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                 <p className="text-sm text-gray-700">
-                  Quantidade de pneus definida automaticamente:{" "}
+                  Quantidade de pneus:{" "}
                   <span className="font-semibold text-gray-900">{formData.tireCount}</span>
+                  {" "}(uso automático conforme tipo)
                 </p>
               </div>
             ) : null}
 
             <Button type="submit" variant="primary">
-              Cadastrar Veículo
+              Cadastrar veículo e pneus
             </Button>
           </form>
         </CardContent>
@@ -205,7 +261,7 @@ export function Vehicles() {
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Veículos Cadastrados</h3>
+              <h3 className="text-base md:text-lg font-semibold text-gray-900">Veículos cadastrados</h3>
               <p className="text-xs md:text-sm text-gray-600">{filteredVehicles.length} veículo(s) encontrado(s)</p>
             </div>
             <div className="flex items-center gap-2">
@@ -224,7 +280,6 @@ export function Vehicles() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -235,6 +290,7 @@ export function Vehicles() {
                   <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Ano</th>
                   <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Placa</th>
                   <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Pneus</th>
+                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Pneu (fab./modelo)</th>
                   <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Ações</th>
                 </tr>
               </thead>
@@ -265,8 +321,11 @@ export function Vehicles() {
                       </span>
                     </td>
                     <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{vehicle.tireCount}</td>
+                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">
+                      {vehicle.tireManufacturer} {vehicle.tireModel}
+                    </td>
                     <td className="px-4 lg:px-6 py-3 md:py-4">
-                      <Button variant="ghost" onClick={() => handleRemove(vehicle.id)}>
+                      <Button variant="ghost" type="button" onClick={() => removeVehicle(vehicle.id)}>
                         Remover
                       </Button>
                     </td>
@@ -276,7 +335,6 @@ export function Vehicles() {
             </table>
           </div>
 
-          {/* Mobile Cards */}
           <div className="md:hidden space-y-3 p-4">
             {filteredVehicles.map((vehicle) => (
               <div key={vehicle.id} className="bg-white border border-gray-100 rounded-xl p-4 space-y-3">
@@ -293,6 +351,9 @@ export function Vehicles() {
                       </span>
                     </div>
                     <h4 className="font-medium text-gray-900">{vehicle.brand} {vehicle.model}</h4>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Pneus: {vehicle.tireManufacturer} {vehicle.tireModel}
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
@@ -305,11 +366,11 @@ export function Vehicles() {
                     <p className="text-sm font-mono font-medium text-gray-900">{vehicle.plate}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Pneus</p>
+                    <p className="text-xs text-gray-500">Quantidade pneus</p>
                     <p className="text-sm font-medium text-gray-900">{vehicle.tireCount}</p>
                   </div>
                 </div>
-                <Button variant="ghost" onClick={() => handleRemove(vehicle.id)} className="w-full text-sm">
+                <Button variant="ghost" type="button" onClick={() => removeVehicle(vehicle.id)} className="w-full text-sm">
                   Remover
                 </Button>
               </div>

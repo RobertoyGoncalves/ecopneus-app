@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { MapPin } from "lucide-react";
+import { formatVehicleLabel, useFleet } from "../contexts/FleetContext";
 
 interface Trip {
   id: number;
@@ -20,17 +21,6 @@ interface Trip {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-const getTireCount = (vehicleType: string, truckTires: string) => {
-  if (vehicleType === "Carro") return 4;
-  if (vehicleType === "Moto") return 2;
-  if (vehicleType === "Caminhão") {
-    const parsedTruckTires = Number(truckTires);
-    if (!Number.isFinite(parsedTruckTires)) return 6;
-    return clamp(Math.round(parsedTruckTires), 4, 24);
-  }
-  return 0;
-};
 
 const averageCargoByVehicleType: Record<string, { weight: string; value: string; type: string }> = {
   Carro: { weight: "120", value: "400", type: "Carga Leve" },
@@ -72,15 +62,17 @@ const getWearLevel = (estimatedWear: number): "Baixo" | "Médio" | "Alto" => {
 };
 
 export function Trips() {
+  const { vehicles } = useFleet();
+
   const [filterType, setFilterType] = useState("Todos");
   const [trips, setTrips] = useState<Trip[]>([
-    { id: 1, vehicle: "Volvo FH 540", vehicleType: "Caminhão", distance: "1245", weight: "25000", value: "8450.00", type: "Carga Geral", hasCargo: true, date: "05/04/2026", estimatedWear: 18.2, wearLevel: "Baixo", tireCount: 10 },
-    { id: 2, vehicle: "Toyota Corolla", vehicleType: "Carro", distance: "890", weight: "500", value: "6200.00", type: "Executivo", hasCargo: true, date: "04/04/2026", estimatedWear: 6.8, wearLevel: "Baixo", tireCount: 4 },
-    { id: 3, vehicle: "Mercedes Actros", vehicleType: "Caminhão", distance: "2100", weight: "30000", value: "12800.00", type: "Containers", hasCargo: true, date: "03/04/2026", estimatedWear: 33.7, wearLevel: "Médio", tireCount: 12 },
-    { id: 4, vehicle: "Honda CG 160", vehicleType: "Moto", distance: "120", weight: "0", value: "0", type: "Sem carga", hasCargo: false, date: "02/04/2026", estimatedWear: 0.4, wearLevel: "Baixo", tireCount: 2 },
+    { id: 1, vehicle: "Volvo FH 540 • ABC-1234", vehicleType: "Caminhão", distance: "1245", weight: "25000", value: "8450.00", type: "Carga Geral", hasCargo: true, date: "05/04/2026", estimatedWear: 18.2, wearLevel: "Baixo", tireCount: 10 },
+    { id: 2, vehicle: "Toyota Corolla • XYZ-5678", vehicleType: "Carro", distance: "890", weight: "500", value: "6200.00", type: "Executivo", hasCargo: true, date: "04/04/2026", estimatedWear: 6.8, wearLevel: "Baixo", tireCount: 4 },
+    { id: 3, vehicle: "Honda CG 160 • DEF-9012", vehicleType: "Moto", distance: "120", weight: "0", value: "0", type: "Sem carga", hasCargo: false, date: "02/04/2026", estimatedWear: 0.4, wearLevel: "Baixo", tireCount: 2 },
   ]);
 
   const [formData, setFormData] = useState({
+    fleetVehicleId: "",
     vehicle: "",
     vehicleType: "",
     distance: "",
@@ -88,24 +80,45 @@ export function Trips() {
     weight: "",
     value: "",
     type: "",
-    truckTires: "",
   });
 
-  const applyAverageCargo = (vehicleType: string) => {
-    const average = averageCargoByVehicleType[vehicleType];
-    if (!average) return;
-    setFormData((current) => ({ ...current, weight: average.weight, value: average.value, type: average.type }));
-  };
+  const vehiclesForType = useMemo(
+    () => vehicles.filter((v) => v.type === formData.vehicleType),
+    [vehicles, formData.vehicleType]
+  );
+
+  const selectedFleetVehicle =
+    formData.fleetVehicleId !== ""
+      ? vehicles.find((v) => String(v.id) === formData.fleetVehicleId)
+      : undefined;
 
   const handleVehicleTypeChange = (vehicleType: string) => {
-    setFormData((current) => ({
-      ...current,
-      vehicleType,
-      truckTires: vehicleType === "Caminhão" ? current.truckTires : "",
-    }));
-    if (formData.hasCargo) {
-      applyAverageCargo(vehicleType);
+    setFormData((current) => {
+      const next = { ...current, vehicleType, fleetVehicleId: "", vehicle: "" };
+      if (current.hasCargo && vehicleType) {
+        const avg = averageCargoByVehicleType[vehicleType];
+        if (avg) {
+          next.weight = avg.weight;
+          next.value = avg.value;
+          next.type = avg.type;
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleFleetVehicleChange = (idStr: string) => {
+    if (!idStr) {
+      setFormData((c) => ({ ...c, fleetVehicleId: "", vehicle: "" }));
+      return;
     }
+    const v = vehicles.find((x) => String(x.id) === idStr);
+    if (!v) return;
+    setFormData((c) => ({
+      ...c,
+      fleetVehicleId: idStr,
+      vehicle: formatVehicleLabel(v),
+    }));
   };
 
   const handleHasCargoChange = (hasCargo: boolean) => {
@@ -114,22 +127,31 @@ export function Trips() {
       return;
     }
 
-    setFormData((current) => ({ ...current, hasCargo: true }));
-    if (formData.vehicleType) {
-      applyAverageCargo(formData.vehicleType);
-    }
+    setFormData((current) => {
+      const next = { ...current, hasCargo: true };
+      const vt = current.vehicleType;
+      const average = vt ? averageCargoByVehicleType[vt] : undefined;
+      if (average) {
+        next.weight = average.weight;
+        next.value = average.value;
+        next.type = average.type;
+      }
+      return next;
+    });
   };
 
   const weightForCalculation = formData.hasCargo ? formData.weight : "0";
   const estimatedWear = calculateEstimatedWear(formData.vehicleType, formData.distance, weightForCalculation);
   const wearLevel = getWearLevel(estimatedWear);
-  const tireCount = getTireCount(formData.vehicleType, formData.truckTires);
+  const tireCount = selectedFleetVehicle?.tireCount ?? 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalWeight = formData.hasCargo ? formData.weight : "0";
     const finalValue = formData.hasCargo ? formData.value : "0";
     const finalType = formData.hasCargo ? formData.type : "Sem carga";
+
+    if (!selectedFleetVehicle) return;
 
     const newTrip: Trip = {
       id: Date.now(),
@@ -146,7 +168,16 @@ export function Trips() {
       tireCount,
     };
     setTrips([newTrip, ...trips]);
-    setFormData({ vehicle: "", vehicleType: "", distance: "", hasCargo: false, weight: "", value: "", type: "", truckTires: "" });
+    setFormData({
+      fleetVehicleId: "",
+      vehicle: "",
+      vehicleType: "",
+      distance: "",
+      hasCargo: false,
+      weight: "",
+      value: "",
+      type: "",
+    });
   };
 
   const filteredTrips = filterType === "Todos"
@@ -190,13 +221,31 @@ export function Trips() {
                   <option value="Moto">Moto</option>
                 </select>
               </div>
-              <Input
-                label="Veículo"
-                placeholder="Ex: Volvo FH 540"
-                value={formData.vehicle}
-                onChange={(e) => setFormData({ ...formData, vehicle: e.target.value })}
-                required
-              />
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">
+                  Veículo cadastrado
+                </label>
+                <select
+                  value={formData.fleetVehicleId}
+                  disabled={!formData.vehicleType || vehiclesForType.length === 0}
+                  onChange={(e) => handleFleetVehicleChange(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-500"
+                  required
+                >
+                  <option value="">
+                    {!formData.vehicleType
+                      ? "Primeiro escolha o tipo"
+                      : vehiclesForType.length === 0
+                        ? "Nenhum veículo deste tipo — cadastre em Veículos"
+                        : "Selecione o veículo"}
+                  </option>
+                  {vehiclesForType.map((v) => (
+                    <option key={v.id} value={String(v.id)}>
+                      {formatVehicleLabel(v)}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <Input
                 label="Distância (km)"
                 placeholder="1000"
@@ -262,19 +311,11 @@ export function Trips() {
               </div>
             )}
 
-            {formData.vehicleType === "Caminhão" && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
-                  label="Qtd. de Pneus do Caminhão"
-                  placeholder="Ex: 10"
-                  type="number"
-                  min="4"
-                  max="24"
-                  value={formData.truckTires}
-                  onChange={(e) => setFormData({ ...formData, truckTires: e.target.value })}
-                  required
-                />
-              </div>
+            {selectedFleetVehicle?.type === "Caminhão" && (
+              <p className="text-sm text-gray-600 md:col-span-3">
+                Pneus para o cálculo: <span className="font-semibold text-gray-900">{selectedFleetVehicle.tireCount}</span>{" "}
+                (conforme cadastro em Veículos)
+              </p>
             )}
 
             {formData.vehicleType && (
@@ -286,7 +327,8 @@ export function Trips() {
                   Nível de Desgaste: <span className="font-semibold text-gray-900">{wearLevel}</span>
                 </p>
                 <p className="text-sm text-gray-700">
-                  Número de Pneus que sofrerão desgaste: <span className="font-semibold text-gray-900">{tireCount || "-"}</span>
+                  Número de Pneus que sofrerão desgaste:{" "}
+                  <span className="font-semibold text-gray-900">{tireCount > 0 ? tireCount : "—"}</span>
                 </p>
                 <p className="text-sm text-gray-700">
                   Uso de carga: <span className="font-semibold text-gray-900">{formData.hasCargo ? "Sim" : "Não"}</span>
