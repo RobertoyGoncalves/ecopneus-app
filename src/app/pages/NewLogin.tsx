@@ -15,7 +15,7 @@ export function NewLogin() {
   });
   const [errors, setErrors] = useState({ email: false, password: false, login: false });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Simple validation
@@ -28,9 +28,7 @@ export function NewLogin() {
     setErrors(newErrors);
 
     if (!newErrors.email && !newErrors.password) {
-      // Tentar fazer login
-      const success = login(formData.email, formData.password);
-
+      const success = await login(formData.email, formData.password);
       if (success) {
         navigate("/");
       } else {

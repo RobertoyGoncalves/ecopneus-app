@@ -47,6 +47,9 @@ const tierLabels: Record<TireQualityTier, string> = {
 export function Trips() {
   const { vehicles, tires, applyTripWearToVehicle } = useFleet();
 
+  /** Se falso, usa a linha cadastrada no veículo; se verdadeiro, usa o select manual. */
+  const [tierOverride, setTierOverride] = useState(false);
+
   const [filterType, setFilterType] = useState("Todos");
   const [trips, setTrips] = useState<Trip[]>([
     {
@@ -127,6 +130,12 @@ export function Trips() {
       ? vehicles.find((v) => String(v.id) === formData.fleetVehicleId)
       : undefined;
 
+  const effectiveTier = useMemo((): TireQualityTier => {
+    if (!selectedFleetVehicle) return formData.tireTier;
+    if (!tierOverride) return selectedFleetVehicle.tireQualityTier;
+    return formData.tireTier;
+  }, [selectedFleetVehicle, tierOverride, formData.tireTier]);
+
   const tiresOfSelected = useMemo(
     () =>
       selectedFleetVehicle
@@ -149,7 +158,7 @@ export function Trips() {
       avgSpeedKmh: Math.max(0, Number(formData.avgSpeedKmh) || 0),
       temperatureCelsius: tempCelsius,
       roadCondition: formData.roadCondition,
-      tier: formData.tireTier,
+      tier: effectiveTier,
     });
   }, [
     selectedFleetVehicle,
@@ -159,7 +168,7 @@ export function Trips() {
     formData.avgSpeedKmh,
     tempCelsius,
     formData.roadCondition,
-    formData.tireTier,
+    effectiveTier,
   ]);
 
   const wearLevelPreview = wearSeverityLevel(lifeConsumedPreview);
@@ -174,6 +183,7 @@ export function Trips() {
     minAfterTrip !== undefined && lifeConsumedPreview > 0 && minAfterTrip < 15;
 
   const handleVehicleTypeChange = (vehicleType: string) => {
+    setTierOverride(false);
     setFormData((current) => {
       const next = { ...current, vehicleType, fleetVehicleId: "", vehicle: "" };
       if (current.hasCargo && vehicleType) {
@@ -189,6 +199,7 @@ export function Trips() {
   };
 
   const handleFleetVehicleChange = (idStr: string) => {
+    setTierOverride(false);
     if (!idStr) {
       setFormData((c) => ({ ...c, fleetVehicleId: "", vehicle: "" }));
       return;
@@ -229,7 +240,7 @@ export function Trips() {
     ? NOMINAL_LIFE_KM[selectedFleetVehicle.type] ?? null
     : null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalWeight = formData.hasCargo ? formData.weight : "0";
     const finalValue = formData.hasCargo ? formData.value : "0";
@@ -244,12 +255,12 @@ export function Trips() {
       avgSpeedKmh: Math.max(0, Number(formData.avgSpeedKmh) || 0),
       temperatureCelsius: tempCelsius,
       roadCondition: formData.roadCondition,
-      tier: formData.tireTier,
+      tier: effectiveTier,
     });
 
     if (delta <= 0) return;
 
-    applyTripWearToVehicle(selectedFleetVehicle.id, delta);
+    await applyTripWearToVehicle(selectedFleetVehicle.id, delta);
 
     const newTrip: Trip = {
       id: Date.now(),
@@ -269,6 +280,7 @@ export function Trips() {
       dayPeriod: formData.dayPeriod,
     };
     setTrips([newTrip, ...trips]);
+    setTierOverride(false);
     setFormData({
       fleetVehicleId: "",
       vehicle: "",
@@ -293,7 +305,9 @@ export function Trips() {
     <div className="p-4 md:p-6 lg:p-8">
       <div className="mb-6 md:mb-8">
         <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2">Viagens</h1>
-        <p className="text-sm md:text-base text-gray-600">Registre e acompanhe as viagens da sua frota</p>
+        <p className="text-sm md:text-base text-gray-600">
+          Registre viagens e veja o impacto estimado na vida útil dos pneus
+        </p>
       </div>
 
       <Card className="mb-6 md:mb-8">
@@ -305,8 +319,8 @@ export function Trips() {
             <div>
               <h3 className="text-base md:text-lg font-semibold text-gray-900">Registrar Nova Viagem</h3>
               <p className="text-xs md:text-sm text-gray-600">
-                Modelo empírico: distância, massa total (tara fixa + carga), velocidade, estrada,
-                período (temperatura proxy) e linha dos pneus
+                Distância, peso total (veículo + carga), velocidade em km/h, estrada, período do dia
+                (temperatura aproximada) e linha dos pneus
               </p>
             </div>
           </div>
@@ -390,7 +404,7 @@ export function Trips() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Período (temperatura ref.)</label>
+                <label className="block text-sm text-gray-700 mb-2">Período do dia</label>
                 <select
                   value={formData.dayPeriod}
                   onChange={(e) =>
@@ -406,24 +420,42 @@ export function Trips() {
                   <option value="noite">Noite — 20 °C</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">
-                  Linha dos pneus nesta viagem
-                </label>
+              <div className="md:col-span-2 lg:col-span-2">
+                <label className="block text-sm text-gray-700 mb-2">Linha dos pneus</label>
+                {selectedFleetVehicle && (
+                  <label className="flex items-center gap-2 mb-2 text-sm text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tierOverride}
+                      onChange={(e) => setTierOverride(e.target.checked)}
+                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    Alterar só nesta viagem
+                  </label>
+                )}
                 <select
                   value={formData.tireTier}
+                  disabled={Boolean(selectedFleetVehicle) && !tierOverride}
                   onChange={(e) =>
                     setFormData((f) => ({
                       ...f,
                       tireTier: e.target.value as TireQualityTier,
                     }))
                   }
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-600"
                 >
-                  <option value="economico">Econômico ({tierLabels.economico})</option>
-                  <option value="intermediario">Intermediário</option>
-                  <option value="premium">Premium</option>
+                  <option value="economico">{tierLabels.economico}</option>
+                  <option value="intermediario">{tierLabels.intermediario}</option>
+                  <option value="premium">{tierLabels.premium}</option>
                 </select>
+                {selectedFleetVehicle && !tierOverride && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Usando a linha do cadastro do veículo:{" "}
+                    <span className="font-medium text-gray-700">
+                      {tierLabels[selectedFleetVehicle.tireQualityTier]}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -484,21 +516,21 @@ export function Trips() {
 
             {selectedFleetVehicle?.type === "Caminhão" && (
               <p className="text-sm text-gray-600">
-                Pneus do cadastro para repartição da vida útil:{" "}
+                Pneus cadastrados neste veículo:{" "}
                 <span className="font-semibold text-gray-900">{selectedFleetVehicle.tireCount}</span>
               </p>
             )}
 
             {selectedFleetVehicle && curbDisplay !== null && (
               <p className="text-xs text-gray-500">
-                Tara modelo (tipo):{" "}
+                Peso do veículo (referência por tipo):{" "}
                 <span className="font-medium text-gray-700">{curbDisplay} kg</span>
                 {nominalKmRef !== null && (
                   <>
                     {" "}
-                    · Vida nominal ref.:{" "}
+                    · Referência de vida útil:{" "}
                     <span className="font-medium text-gray-700">
-                      {(nominalKmRef / 1000).toFixed(0)}k km
+                      {(nominalKmRef / 1000).toFixed(0)} mil km
                     </span>
                   </>
                 )}
@@ -549,11 +581,11 @@ export function Trips() {
                   </span>
                 </p>
                 <p className="text-sm text-gray-700">
-                  Temperatura proxy: <span className="font-medium">{tempCelsius} °C</span>
+                  Temperatura aproximada: <span className="font-medium">{tempCelsius} °C</span>
                 </p>
                 <p className="text-sm text-gray-700">
-                  Pneus afetados: <span className="font-semibold">{tireCount}</span> · mesma %
-                  aplicada em todos (regra A)
+                  Pneus no veículo: <span className="font-semibold">{tireCount}</span> — o mesmo
+                  percentual vale para todos
                 </p>
               </div>
             )}

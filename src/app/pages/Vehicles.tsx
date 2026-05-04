@@ -16,7 +16,7 @@ const muiRounded = {
 } as const;
 
 export function Vehicles() {
-  const { vehicles, addVehicle, removeVehicle } = useFleet();
+  const { vehicles, addVehicle, removeVehicle, fleetLoading } = useFleet();
 
   const [filterType, setFilterType] = useState("Todos");
 
@@ -44,7 +44,7 @@ export function Vehicles() {
     setFormData((f) => ({ ...f, type, tireCount: "" }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedTireCount = Number(formData.tireCount);
     const tireCount = formData.type === "Caminhão"
@@ -53,7 +53,7 @@ export function Vehicles() {
         ? 4
         : 2;
 
-    addVehicle({
+    await addVehicle({
       type: formData.type,
       brand: formData.brand.trim(),
       model: formData.model.trim(),
@@ -113,6 +113,12 @@ export function Vehicles() {
         <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2">Veículos</h1>
         <p className="text-sm md:text-base text-gray-600">Gerencie todos os seus veículos em um só lugar</p>
       </div>
+
+      {fleetLoading && (
+        <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          Carregando frota da nuvem…
+        </div>
+      )}
 
       {/* Add Vehicle Form */}
       <Card className="mb-6 md:mb-8">
@@ -359,7 +365,7 @@ export function Vehicles() {
                       </span>
                     </td>
                     <td className="px-4 lg:px-6 py-3 md:py-4">
-                      <Button variant="ghost" type="button" onClick={() => removeVehicle(vehicle.id)}>
+                      <Button variant="ghost" type="button" onClick={() => void removeVehicle(vehicle.id)}>
                         Remover
                       </Button>
                     </td>
@@ -409,7 +415,7 @@ export function Vehicles() {
                     <p className="text-sm font-medium text-gray-900">{vehicle.tireCount}</p>
                   </div>
                 </div>
-                <Button variant="ghost" type="button" onClick={() => removeVehicle(vehicle.id)} className="w-full text-sm">
+                <Button variant="ghost" type="button" onClick={() => void removeVehicle(vehicle.id)} className="w-full text-sm">
                   Remover
                 </Button>
               </div>

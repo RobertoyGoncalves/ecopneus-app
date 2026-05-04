@@ -26,8 +26,11 @@ export function Register() {
     cnpj: false,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFeedback(null);
 
     // Validation
     const newErrors = {
@@ -40,15 +43,22 @@ export function Register() {
 
     setErrors(newErrors);
 
-    if (!Object.values(newErrors).some(v => v)) {
-      // Registrar usuário
-      register({
+    if (!Object.values(newErrors).some((v) => v)) {
+      const result = await register({
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
         userType,
         companyName: formData.companyName || undefined,
       });
+      if (!result.ok) {
+        setFeedback({ type: "err", text: result.error ?? "Não foi possível cadastrar." });
+        return;
+      }
+      if (result.error) {
+        setFeedback({ type: "ok", text: result.error });
+        return;
+      }
       navigate("/");
     }
   };
@@ -162,6 +172,18 @@ export function Register() {
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Criar conta</h2>
               <p className="text-sm md:text-base text-gray-600">Comece a gerenciar seus veículos hoje</p>
             </div>
+
+            {feedback && (
+              <div
+                className={`mb-4 rounded-xl border p-3 text-sm ${
+                  feedback.type === "ok"
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-red-50 border-red-200 text-red-900"
+                }`}
+              >
+                {feedback.text}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
               {/* User Type Selection */}
