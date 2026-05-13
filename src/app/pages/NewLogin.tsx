@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router";
 import { Mail, Lock, Eye, EyeOff, Truck, Car, Bike, AlertCircle } from "lucide-react";
 import { Button } from "../components/Button";
@@ -6,7 +6,12 @@ import { useAuth } from "../contexts/AuthContext";
 
 export function NewLogin() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, authReady } = useAuth();
+
+  useEffect(() => {
+    if (!authReady || !isAuthenticated) return;
+    navigate("/", { replace: true });
+  }, [authReady, isAuthenticated, navigate]);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -30,7 +35,7 @@ export function NewLogin() {
     if (!newErrors.email && !newErrors.password) {
       const success = await login(formData.email, formData.password);
       if (success) {
-        navigate("/");
+        navigate("/app");
       } else {
         setErrors({ ...newErrors, login: true });
       }
@@ -234,6 +239,9 @@ export function NewLogin() {
           <p className="text-center text-xs md:text-sm text-gray-600 mt-4 md:mt-6">
             © 2026 EcoPneu. Gestão inteligente de veículos.
           </p>
+          <Link to="/" className="mt-2 block text-center text-xs font-medium text-green-600 hover:text-green-700">
+            ← Voltar ao início
+          </Link>
         </div>
       </div>
     </div>

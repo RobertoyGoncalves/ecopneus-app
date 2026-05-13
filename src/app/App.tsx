@@ -1,6 +1,7 @@
 import { BrowserRouter } from "react-router";
 import { AuthProvider } from "./contexts/AuthContext";
 import { FleetProvider } from "./contexts/FleetContext";
+import { TripsProvider } from "./contexts/TripsContext";
 import { AppRoutes } from "./routes";
 
 export default function App() {
@@ -8,7 +9,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <FleetProvider>
-          <AppRoutes />
+          <TripsProvider>
+            <AppRoutes />
+          </TripsProvider>
         </FleetProvider>
       </AuthProvider>
     </BrowserRouter>

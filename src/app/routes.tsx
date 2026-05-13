@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { HomePage } from "./pages/HomePage";
 import { NewLogin } from "./pages/NewLogin";
 import { Register } from "./pages/Register";
 import { Dashboard } from "./pages/Dashboard";
@@ -11,13 +12,17 @@ import { Trips } from "./pages/Trips";
 export function AppRoutes() {
   return (
     <Routes>
-      {/* Public Routes */}
+      <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<NewLogin />} />
       <Route path="/cadastro" element={<Register />} />
 
-      {/* Protected Routes */}
+      {/* URLs antigas (antes de /app) */}
+      <Route path="/vehicles" element={<Navigate to="/app/vehicles" replace />} />
+      <Route path="/tires" element={<Navigate to="/app/tires" replace />} />
+      <Route path="/trips" element={<Navigate to="/app/trips" replace />} />
+
       <Route
-        path="/"
+        path="/app"
         element={
           <ProtectedRoute>
             <Layout />
@@ -30,7 +35,6 @@ export function AppRoutes() {
         <Route path="trips" element={<Trips />} />
       </Route>
 
-      {/* Redirect unknown routes */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

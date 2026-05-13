@@ -59,7 +59,7 @@ export function Register() {
         setFeedback({ type: "ok", text: result.error });
         return;
       }
-      navigate("/");
+      navigate("/app");
     }
   };
 

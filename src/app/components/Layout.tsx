@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router";
-import { LayoutDashboard, Car, CircleDot, Map, Menu, X, LogOut, User } from "lucide-react";
+import { LayoutDashboard, Car, CircleDot, Map as MapIcon, Menu, X, LogOut } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Layout() {
@@ -9,17 +9,17 @@ export function Layout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const menuItems = [
-    { path: "/", icon: LayoutDashboard, label: "Dashboard" },
-    { path: "/vehicles", icon: Car, label: "Veículos" },
-    { path: "/tires", icon: CircleDot, label: "Pneus" },
-    { path: "/trips", icon: Map, label: "Viagens" },
+    { path: "/app", icon: LayoutDashboard, label: "Dashboard" },
+    { path: "/app/vehicles", icon: Car, label: "Veículos" },
+    { path: "/app/tires", icon: CircleDot, label: "Pneus" },
+    { path: "/app/trips", icon: MapIcon, label: "Viagens" },
   ];
 
   const isActive = (path: string) => {
-    if (path === "/") {
-      return location.pathname === "/";
+    if (path === "/app") {
+      return location.pathname === "/app" || location.pathname === "/app/";
     }
-    return location.pathname.startsWith(path);
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
@@ -41,15 +41,16 @@ export function Layout() {
   };
 
   return (
-    <div className="flex h-screen bg-[#f8f9fa]">
+    <div className="flex h-screen min-w-0 bg-[#f8f9fa]">
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-[#1f2937] text-white z-40 px-4 py-3 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#22c55e] rounded-lg flex items-center justify-center">
-            <CircleDot className="w-5 h-5" />
-          </div>
-          <h1 className="font-semibold">EcoPneu</h1>
-        </div>
+        <Link to="/app" className="flex items-center gap-2" onClick={closeMobileMenu}>
+          <img
+            src="/brand/ecopneus-logo.png"
+            alt="EcoPneus"
+            className="h-7 w-auto max-w-[160px] object-contain object-left"
+          />
+        </Link>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
@@ -73,15 +74,17 @@ export function Layout() {
         }`}
       >
         <div className="p-6 border-b border-gray-700 mt-14 lg:mt-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#22c55e] rounded-xl flex items-center justify-center">
-              <CircleDot className="w-6 h-6" />
+          <Link to="/app" className="flex items-center gap-3 transition-opacity hover:opacity-95" onClick={closeMobileMenu}>
+            <img
+              src="/brand/ecopneus-logo.png"
+              alt=""
+              className="h-9 w-auto max-w-[120px] shrink-0 object-contain object-left"
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-gray-400">Painel</p>
+              <p className="truncate text-sm text-gray-200">Soluções sustentáveis</p>
             </div>
-            <div>
-              <h1 className="text-xl font-semibold">EcoPneu</h1>
-              <p className="text-xs text-gray-400">Gestão Sustentável</p>
-            </div>
-          </div>
+          </Link>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
@@ -140,7 +143,7 @@ export function Layout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto pt-14 lg:pt-0">
         <Outlet />
       </main>
     </div>

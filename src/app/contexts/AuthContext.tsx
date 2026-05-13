@@ -118,8 +118,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+    const { data, error } = await getSupabase().auth.signInWithPassword({ email, password });
     if (error) return false;
+
+    let session = data.session;
+    if (!session) {
+      const { data: s2 } = await getSupabase().auth.getSession();
+      session = s2.session;
+    }
+    if (!session) return false;
+
+    const h = await hydrateFromSupabaseSession(session);
+    setUser(h.user);
+    setSupabaseUserId(h.supabaseUserId);
     return true;
   }, []);
 
@@ -179,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSupabaseUserId(null);
     localStorage.removeItem("ecopneu_currentUser");
-    navigate("/login");
+    navigate("/");
   }, [navigate]);
 
   return (

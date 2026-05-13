@@ -4,6 +4,8 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { MapPin } from "lucide-react";
 import { formatVehicleLabel, useFleet } from "../contexts/FleetContext";
+import { useTrips } from "../contexts/TripsContext";
+import type { Trip } from "../domain/trip";
 import type { DayPeriod, RoadCondition, TireQualityTier } from "../domain/wearModel";
 import {
   computeTripLifeConsumptionPercent,
@@ -12,25 +14,6 @@ import {
   temperatureForPeriod,
   wearSeverityLevel,
 } from "../domain/wearModel";
-
-interface Trip {
-  id: number;
-  vehicle: string;
-  vehicleType: string;
-  distance: string;
-  weight: string;
-  value: string;
-  type: string;
-  hasCargo: boolean;
-  date: string;
-  /** % de vida útil consumida nesta viagem (médio por pneu do veículo). */
-  estimatedWear: number;
-  wearLevel: "Baixo" | "Médio" | "Alto";
-  tireCount: number;
-  avgSpeedKmh?: number;
-  roadCondition?: RoadCondition;
-  dayPeriod?: DayPeriod;
-}
 
 const averageCargoByVehicleType: Record<string, { weight: string; value: string; type: string }> = {
   Carro: { weight: "120", value: "400", type: "Carga Leve" },
@@ -46,64 +29,12 @@ const tierLabels: Record<TireQualityTier, string> = {
 
 export function Trips() {
   const { vehicles, tires, applyTripWearToVehicle } = useFleet();
+  const { trips, addTrip } = useTrips();
 
   /** Se falso, usa a linha cadastrada no veículo; se verdadeiro, usa o select manual. */
   const [tierOverride, setTierOverride] = useState(false);
 
   const [filterType, setFilterType] = useState("Todos");
-  const [trips, setTrips] = useState<Trip[]>([
-    {
-      id: 1,
-      vehicle: "Volvo FH 540 • ABC-1234",
-      vehicleType: "Caminhão",
-      distance: "1245",
-      weight: "25000",
-      value: "8450.00",
-      type: "Carga Geral",
-      hasCargo: true,
-      date: "05/04/2026",
-      estimatedWear: 3.2,
-      wearLevel: "Baixo",
-      tireCount: 10,
-      avgSpeedKmh: 78,
-      roadCondition: "Média",
-      dayPeriod: "tarde",
-    },
-    {
-      id: 2,
-      vehicle: "Toyota Corolla • XYZ-5678",
-      vehicleType: "Carro",
-      distance: "890",
-      weight: "500",
-      value: "6200.00",
-      type: "Executivo",
-      hasCargo: true,
-      date: "04/04/2026",
-      estimatedWear: 2.9,
-      wearLevel: "Baixo",
-      tireCount: 4,
-      avgSpeedKmh: 72,
-      roadCondition: "Boa",
-      dayPeriod: "manha",
-    },
-    {
-      id: 3,
-      vehicle: "Honda CG 160 • DEF-9012",
-      vehicleType: "Moto",
-      distance: "120",
-      weight: "0",
-      value: "0",
-      type: "Sem carga",
-      hasCargo: false,
-      date: "02/04/2026",
-      estimatedWear: 0.5,
-      wearLevel: "Baixo",
-      tireCount: 2,
-      avgSpeedKmh: 55,
-      roadCondition: "Média",
-      dayPeriod: "noite",
-    },
-  ]);
 
   const [formData, setFormData] = useState({
     fleetVehicleId: "",
@@ -262,8 +193,7 @@ export function Trips() {
 
     await applyTripWearToVehicle(selectedFleetVehicle.id, delta);
 
-    const newTrip: Trip = {
-      id: Date.now(),
+    const newTrip: Omit<Trip, "id"> = {
       vehicle: formData.vehicle,
       vehicleType: formData.vehicleType,
       distance: formData.distance,
@@ -272,6 +202,7 @@ export function Trips() {
       type: finalType,
       hasCargo: formData.hasCargo,
       date: new Date().toLocaleDateString("pt-BR"),
+      recordedAtIso: new Date().toISOString(),
       estimatedWear: delta,
       wearLevel: wearSeverityLevel(delta),
       tireCount,
@@ -279,7 +210,7 @@ export function Trips() {
       roadCondition: formData.roadCondition,
       dayPeriod: formData.dayPeriod,
     };
-    setTrips([newTrip, ...trips]);
+    addTrip(newTrip);
     setTierOverride(false);
     setFormData({
       fleetVehicleId: "",
