@@ -1,0 +1,36 @@
+# Dispara um novo deploy na Vercel em cada push para main.
+# Útil quando a integração Git → Vercel não cria deploy com o commit novo.
+#
+# Configuração (uma vez):
+# 1) Vercel → o teu projeto → Settings → Git → Deploy Hooks → Create Hook
+#    Branch: main  →  copia o URL do hook
+# 2) GitHub → este repositório → Settings → Secrets and variables → Actions
+#    → New repository secret → Name: VERCEL_DEPLOY_HOOK_URL → cola o URL
+#
+# Sem o secret, este workflow termina sem erro e não faz nada.
+
+name: Trigger Vercel deploy
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: vercel-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pedir deploy na Vercel (Deploy Hook)
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${VERCEL_DEPLOY_HOOK_URL:-}" ]; then
+            echo "::notice::Secret VERCEL_DEPLOY_HOOK_URL não definida — nada a fazer. Vê comentários no topo de .github/workflows/trigger-vercel-deploy.yml"
+            exit 0
+          fi
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"
+          echo "::notice::Pedido de deploy enviado à Vercel."
