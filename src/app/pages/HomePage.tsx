@@ -181,6 +181,40 @@ export function HomePage() {
             </div>
           </div>
         </section>
+
+        <section className="py-16 md:py-20" aria-label="Chamada para ação">
+          <div className="mx-auto max-w-4xl rounded-3xl bg-gradient-to-br from-green-600 to-emerald-700 px-6 py-12 text-center shadow-xl md:px-10 md:py-14">
+            <h2 className="text-2xl font-bold text-white md:text-3xl">Pronto para modernizar a gestão da frota?</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-white/90 md:text-base">
+              Junte-se à EcoPneus e leve sustentabilidade e eficiência para o dia a dia da sua operação.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
+              {authReady && isAuthenticated ? (
+                <Link
+                  to="/app"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-transparent bg-transparent px-6 py-3 text-base font-semibold text-white transition-colors hover:border-white/20 hover:bg-white/15 sm:w-auto"
+                >
+                  Abrir painel de gestão
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/cadastro"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-transparent bg-transparent px-6 py-3 text-base font-semibold text-white transition-colors hover:border-white/20 hover:bg-white/15 sm:w-auto"
+                  >
+                    Criar minha conta
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-transparent bg-transparent px-6 py-3 text-base font-semibold text-white transition-colors hover:border-white/20 hover:bg-white/15 sm:w-auto"
+                  >
+                    Entrar
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer className="border-t border-gray-100 bg-gray-50 py-8">
