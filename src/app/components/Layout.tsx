@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router";
 import { LayoutDashboard, Car, CircleDot, Map as MapIcon, Menu, X, LogOut } from "lucide-react";
+import { BrandLogo } from "./BrandLogo";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Layout() {
@@ -45,11 +46,7 @@ export function Layout() {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-[#1f2937] text-white z-40 px-4 py-3 flex items-center justify-between shadow-lg">
         <Link to="/app" className="flex items-center gap-2" onClick={closeMobileMenu}>
-          <img
-            src="/brand/ecopneus-logo.png"
-            alt="EcoPneus"
-            className="h-7 w-auto max-w-[160px] object-contain object-left"
-          />
+          <BrandLogo className="h-7 w-auto max-w-[160px]" />
         </Link>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -74,16 +71,8 @@ export function Layout() {
         }`}
       >
         <div className="p-6 border-b border-gray-700 mt-14 lg:mt-0">
-          <Link to="/app" className="flex items-center gap-3 transition-opacity hover:opacity-95" onClick={closeMobileMenu}>
-            <img
-              src="/brand/ecopneus-logo.png"
-              alt=""
-              className="h-9 w-auto max-w-[120px] shrink-0 object-contain object-left"
-            />
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-400">Painel</p>
-              <p className="truncate text-sm text-gray-200">Soluções sustentáveis</p>
-            </div>
+          <Link to="/app" className="block transition-opacity hover:opacity-95" onClick={closeMobileMenu}>
+            <BrandLogo elevated className="h-11 w-auto max-w-full" />
           </Link>
         </div>
 

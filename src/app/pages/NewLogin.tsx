@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router";
 import { Mail, Lock, Eye, EyeOff, Truck, Car, Bike, AlertCircle } from "lucide-react";
+import { BrandLogo } from "../components/BrandLogo";
 import { Button } from "../components/Button";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -54,12 +55,7 @@ export function NewLogin() {
 
         {/* Logo */}
         <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center">
-              <Truck className="w-7 h-7 text-green-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-white">EcoPneu</h1>
-          </div>
+          <BrandLogo elevated className="h-14 w-auto max-w-[220px]" />
         </div>
 
         {/* Hero Content */}
@@ -109,12 +105,7 @@ export function NewLogin() {
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden mb-6 md:mb-8 flex justify-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-600 rounded-2xl flex items-center justify-center">
-                <Truck className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">EcoPneu</h1>
-            </div>
+            <BrandLogo className="h-12 w-auto max-w-[200px] object-center" />
           </div>
 
           {/* Login Card */}
@@ -237,7 +228,7 @@ export function NewLogin() {
 
           {/* Footer */}
           <p className="text-center text-xs md:text-sm text-gray-600 mt-4 md:mt-6">
-            © 2026 EcoPneu. Gestão inteligente de veículos.
+            © 2026 EcoPneus. Soluções sustentáveis.
           </p>
           <Link to="/" className="mt-2 block text-center text-xs font-medium text-green-600 hover:text-green-700">
             ← Voltar ao início

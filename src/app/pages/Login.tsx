@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Mail, Lock, CircleDot } from "lucide-react";
+import { Mail, Lock } from "lucide-react";
+import { BrandLogo } from "../components/BrandLogo";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 
@@ -20,15 +21,7 @@ export function Login() {
       {/* Left Side - Illustration */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#22c55e] to-[#16a34a] p-12 flex-col justify-between relative overflow-hidden">
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-              <CircleDot className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-semibold text-white">EcoPneu</h1>
-              <p className="text-sm text-white/80">Gestão Sustentável de Frotas</p>
-            </div>
-          </div>
+          <BrandLogo elevated className="h-14 w-auto max-w-[220px]" />
 
           <div className="max-w-md mt-20">
             <h2 className="text-4xl font-semibold text-white mb-6">
@@ -64,13 +57,8 @@ export function Login() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
-          <div className="lg:hidden mb-8 text-center">
-            <div className="inline-flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-[#22c55e] rounded-xl flex items-center justify-center">
-                <CircleDot className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="text-2xl font-semibold text-gray-900">EcoPneu</h1>
-            </div>
+          <div className="lg:hidden mb-8 flex justify-center">
+            <BrandLogo className="h-12 w-auto max-w-[200px] object-center" />
           </div>
 
           <div className="mb-8">

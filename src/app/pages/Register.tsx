@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { Mail, Lock, Eye, EyeOff, User, Building2, FileText, Truck, Car, Bike } from "lucide-react";
+import { BrandLogo } from "../components/BrandLogo";
 import { Button } from "../components/Button";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -75,12 +76,7 @@ export function Register() {
 
         {/* Logo */}
         <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center">
-              <Truck className="w-7 h-7 text-green-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-white">EcoPneu</h1>
-          </div>
+          <BrandLogo elevated className="h-14 w-auto max-w-[220px]" />
         </div>
 
         {/* Hero Content */}
@@ -90,7 +86,7 @@ export function Register() {
               Junte-se à revolução da gestão inteligente
             </h2>
             <p className="text-xl text-white/90 leading-relaxed">
-              2 usuários já otimizam custos e aumentam a eficiência com o EcoPneu
+              2 usuários já otimizam custos e aumentam a eficiência com a EcoPneus
             </p>
           </div>
 
@@ -158,12 +154,7 @@ export function Register() {
         <div className="w-full max-w-md py-4 md:py-8">
           {/* Mobile Logo */}
           <div className="lg:hidden mb-6 md:mb-8 flex justify-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-600 rounded-2xl flex items-center justify-center">
-                <Truck className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">EcoPneu</h1>
-            </div>
+            <BrandLogo className="h-12 w-auto max-w-[200px] object-center" />
           </div>
 
           {/* Register Card */}
@@ -411,7 +402,7 @@ export function Register() {
 
           {/* Footer */}
           <p className="text-center text-xs md:text-sm text-gray-600 mt-4 md:mt-6">
-            © 2026 EcoPneu. Gestão inteligente de veículos.
+            © 2026 EcoPneus. Soluções sustentáveis.
           </p>
         </div>
       </div>

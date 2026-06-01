@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "setup:check": "node scripts/check-setup.mjs",
+    "db:migrate": "node scripts/run-migration.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -50,15 +52,15 @@
     "lucide-react": "0.487.0",
     "motion": "12.23.24",
     "next-themes": "0.4.6",
+    "react": "18.3.1",
     "react-day-picker": "8.10.1",
     "react-dnd": "16.0.1",
     "react-dnd-html5-backend": "16.0.1",
+    "react-dom": "18.3.1",
     "react-hook-form": "7.55.0",
     "react-popper": "2.3.0",
     "react-resizable-panels": "2.1.7",
     "react-responsive-masonry": "2.7.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
     "react-router": "7.13.0",
     "react-slick": "0.31.0",
     "sonner": "2.0.3",
@@ -69,6 +71,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
+    "postgres": "^3.4.9",
     "tailwindcss": "4.1.12",
     "vite": "6.3.5",
     "vite-plugin-pwa": "^1.2.0"

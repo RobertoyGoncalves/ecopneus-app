@@ -3,6 +3,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { FleetProvider } from "./contexts/FleetContext";
 import { TripsProvider } from "./contexts/TripsContext";
 import { AppRoutes } from "./routes";
+import { Toaster } from "sonner";
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
         <FleetProvider>
           <TripsProvider>
             <AppRoutes />
+            <Toaster richColors position="top-center" />
           </TripsProvider>
         </FleetProvider>
       </AuthProvider>
