@@ -11,7 +11,7 @@ function TireHealthBarChart({ data }: { data: { name: string; value: number }[] 
     <div className="flex h-[250px] w-full min-w-0 items-end justify-between gap-1 px-1 md:h-[300px] md:gap-2">
       {data.map((d) => (
         <div key={d.name} className="flex min-w-0 flex-1 flex-col items-center justify-end">
-          <span className="mb-1 text-[11px] font-medium tabular-nums text-gray-800">{d.value}</span>
+          <span className="mb-1 text-[11px] font-medium tabular-nums text-slate-800">{d.value}</span>
           <div className="flex h-44 w-full max-w-[3.25rem] items-end justify-center">
             <div
               className="w-full rounded-t-lg bg-green-500"
@@ -19,7 +19,7 @@ function TireHealthBarChart({ data }: { data: { name: string; value: number }[] 
               title={`${d.name}: ${d.value}`}
             />
           </div>
-          <span className="mt-2 max-w-full truncate text-center text-[10px] leading-tight text-gray-500">
+          <span className="mt-2 max-w-full truncate text-center text-[10px] leading-tight text-slate-500">
             {d.name}
           </span>
         </div>
@@ -115,21 +115,21 @@ export function Dashboard() {
   return (
     <div className="min-w-0 p-4 md:p-6 lg:p-8">
       <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2">Dashboard</h1>
-        <p className="text-sm md:text-base text-gray-600">Visão geral do sistema de gestão de veículos</p>
+        <h1 className="mb-2 text-2xl font-semibold text-slate-900 md:text-3xl">Dashboard</h1>
+        <p className="text-sm text-slate-600 md:text-base">Visão geral do sistema de gestão de veículos</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
         {metricsData.map((metric) => {
           const Icon = metric.icon;
           return (
-            <Card key={metric.title} className="hover:shadow-md transition-shadow duration-200">
+            <Card key={metric.title} className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs md:text-sm text-gray-600 mb-2">{metric.title}</p>
-                    <h3 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-1">{metric.value}</h3>
-                    <p className="text-xs md:text-sm text-gray-500">{metric.hint}</p>
+                    <p className="mb-2 text-xs text-slate-600 md:text-sm">{metric.title}</p>
+                    <h3 className="mb-1 text-2xl font-semibold text-slate-900 md:text-3xl">{metric.value}</h3>
+                    <p className="text-xs text-slate-500 md:text-sm">{metric.hint}</p>
                   </div>
                   <div className={`w-10 h-10 md:w-12 md:h-12 ${metric.color} rounded-xl flex items-center justify-center`}>
                     <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -144,8 +144,8 @@ export function Dashboard() {
       <div className="mb-6 md:mb-8 max-w-2xl">
         <Card>
           <CardHeader>
-            <h3 className="text-base md:text-lg font-semibold text-gray-900">Saúde dos Pneus</h3>
-            <p className="text-xs md:text-sm text-gray-600">Quantidade de pneus por faixa de vida útil</p>
+            <h3 className="text-base font-semibold text-slate-900 md:text-lg">Saúde dos Pneus</h3>
+            <p className="text-xs text-slate-600 md:text-sm">Quantidade de pneus por faixa de vida útil</p>
           </CardHeader>
           <CardContent>
             <TireHealthBarChart data={tireHealthData} />
@@ -155,12 +155,12 @@ export function Dashboard() {
 
       <Card>
         <CardHeader>
-          <h3 className="text-base md:text-lg font-semibold text-gray-900">Últimas Viagens</h3>
-          <p className="text-xs md:text-sm text-gray-600">Histórico recente de viagens realizadas</p>
+          <h3 className="text-base font-semibold text-slate-900 md:text-lg">Últimas Viagens</h3>
+          <p className="text-xs text-slate-600 md:text-sm">Histórico recente de viagens realizadas</p>
         </CardHeader>
         <CardContent className="p-0">
           {recentTrips.length === 0 ? (
-            <div className="px-4 lg:px-6 py-8 text-center text-sm text-gray-500">
+            <div className="px-4 py-8 text-center text-sm text-slate-500 lg:px-6">
               Nenhuma viagem registada. Cadastre viagens na página <strong>Viagens</strong> para ver o histórico aqui.
             </div>
           ) : (
@@ -168,33 +168,33 @@ export function Dashboard() {
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Veículo</th>
-                      <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Tipo</th>
-                      <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Distância</th>
-                      <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Data</th>
-                      <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Valor</th>
-                      <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Status</th>
+                    <tr className="border-b border-slate-200 bg-slate-50/60">
+                      <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Veículo</th>
+                      <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Tipo</th>
+                      <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Distância</th>
+                      <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Data</th>
+                      <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Valor</th>
+                      <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentTrips.map((trip, index) => (
                       <tr
                         key={trip.id}
-                        className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                        className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${
+                          index % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                         }`}
                       >
-                        <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-900">{trip.vehicle}</td>
+                        <td className="px-4 py-3 text-sm text-slate-900 md:py-4 lg:px-6">{trip.vehicle}</td>
                         <td className="px-4 lg:px-6 py-3 md:py-4">
                           <span className="inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
                             {trip.vehicleType}
                           </span>
                         </td>
-                        <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">
                           {Number(trip.distance).toLocaleString("pt-BR")} km
                         </td>
-                        <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.date}</td>
+                        <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.date}</td>
                         <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-green-600 font-medium">
                           R$ {Number(trip.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </td>
@@ -209,27 +209,27 @@ export function Dashboard() {
                 </table>
               </div>
 
-              <div className="md:hidden space-y-3 p-4">
+              <div className="space-y-3 p-4 md:hidden">
                 {recentTrips.map((trip) => (
-                  <div key={trip.id} className="bg-white border border-gray-100 rounded-xl p-4 space-y-2">
+                  <div key={trip.id} className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-medium text-gray-900 text-sm">{trip.vehicle}</h4>
-                        <p className="text-xs text-gray-500 mt-1">{trip.date}</p>
+                        <h4 className="text-sm font-medium text-slate-900">{trip.vehicle}</h4>
+                        <p className="mt-1 text-xs text-slate-500">{trip.date}</p>
                       </div>
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
                         {trip.vehicleType}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+                    <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-2">
                       <div>
-                        <p className="text-xs text-gray-500">Distância</p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-xs text-slate-500">Distância</p>
+                        <p className="text-sm font-medium text-slate-900">
                           {Number(trip.distance).toLocaleString("pt-BR")} km
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Valor</p>
+                        <p className="text-xs text-slate-500">Valor</p>
                         <p className="text-sm font-medium text-green-600">
                           R$ {Number(trip.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </p>

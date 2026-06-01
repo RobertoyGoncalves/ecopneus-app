@@ -42,9 +42,9 @@ export function Layout() {
   };
 
   return (
-    <div className="flex h-screen min-w-0 bg-[#f8f9fa]">
+    <div className="flex h-screen min-w-0 bg-slate-50">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-[#1f2937] text-white z-40 px-4 py-3 flex items-center justify-between shadow-lg">
+      <div className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between border-b border-slate-800/60 bg-[#0f172a] px-4 py-3 text-white shadow-lg lg:hidden">
         <Link to="/app" className="flex items-center gap-2" onClick={closeMobileMenu}>
           <BrandLogo className="h-7 w-auto max-w-[160px]" />
         </Link>
@@ -59,24 +59,24 @@ export function Layout() {
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={closeMobileMenu}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-[#1f2937] text-white flex flex-col shadow-xl transform transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 transform flex-col border-r border-slate-800/70 bg-[#0f172a] text-white shadow-xl transition-transform duration-300 lg:static lg:translate-x-0 ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="p-6 border-b border-gray-700 mt-14 lg:mt-0">
+        <div className="mt-14 border-b border-slate-800/70 p-6 lg:mt-0">
           <Link to="/app" className="block transition-opacity hover:opacity-95" onClick={closeMobileMenu}>
             <BrandLogo elevated className="h-11 w-auto max-w-full" />
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 space-y-2 p-4">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -86,10 +86,10 @@ export function Layout() {
                 key={item.path}
                 to={item.path}
                 onClick={closeMobileMenu}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
                   active
-                    ? "bg-[#22c55e] text-white shadow-lg shadow-green-500/20"
-                    : "text-gray-300 hover:bg-[#374151] hover:text-white"
+                    ? "bg-[#16a34a] text-white shadow-lg shadow-green-600/20"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 }`}
               >
                 <Icon className="w-5 h-5" />
@@ -100,7 +100,7 @@ export function Layout() {
         </nav>
 
         {/* User Info & Logout Section */}
-        <div className="p-4 border-t border-gray-700">
+        <div className="border-t border-slate-800/70 p-4">
           <div className="px-4 py-3 space-y-3">
             {/* User Profile */}
             <div className="flex items-center gap-3">
@@ -113,7 +113,7 @@ export function Layout() {
                 <p className="text-sm font-semibold text-white truncate">
                   {user?.fullName || "Usuário"}
                 </p>
-                <p className="text-xs text-gray-400 truncate">
+                  <p className="truncate text-xs text-slate-400">
                   {user?.email || "email@exemplo.com"}
                 </p>
               </div>
@@ -122,7 +122,7 @@ export function Layout() {
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-xl transition-all duration-200 border border-red-500/30 hover:border-red-500/50 hover:shadow-lg hover:shadow-red-500/10"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-red-300 transition-all duration-200 hover:border-red-500/40 hover:bg-red-500/20 hover:text-red-200"
             >
               <LogOut className="w-4 h-4" />
               <span className="font-medium text-sm">Sair da Conta</span>

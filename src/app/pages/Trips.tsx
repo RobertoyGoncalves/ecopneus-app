@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
-import { MapPin } from "lucide-react";
+import { Loader2, MapPin, Navigation } from "lucide-react";
 import { formatVehicleLabel, useFleet } from "../contexts/FleetContext";
 import { useTrips } from "../contexts/TripsContext";
 import type { Trip } from "../domain/trip";
@@ -14,6 +14,10 @@ import {
   temperatureForPeriod,
   wearSeverityLevel,
 } from "../domain/wearModel";
+import { useGeolocation } from "../hooks/useGeolocation";
+import { useViagemAutoFill } from "../hooks/useViagemAutoFill";
+import { buscarSugestoesDestino, geocodificarEndereco } from "@/services/routeService";
+import { periodOptionsWithTemperature } from "../utils/periodoUtils";
 
 const averageCargoByVehicleType: Record<string, { weight: string; value: string; type: string }> = {
   Carro: { weight: "120", value: "400", type: "Carga Leve" },
@@ -27,6 +31,27 @@ const tierLabels: Record<TireQualityTier, string> = {
   premium: "Premium",
 };
 
+const destinoSugestoes = [
+  "Maringá, PR",
+  "Londrina, PR",
+  "Curitiba, PR",
+  "Cascavel, PR",
+  "Ponta Grossa, PR",
+  "São José dos Pinhais, PR",
+  "Foz do Iguaçu, PR",
+  "Campinas, SP",
+  "São Paulo, SP",
+  "Ribeirão Preto, SP",
+  "Jundiaí, SP",
+];
+
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export function Trips() {
   const { vehicles, tires, applyTripWearToVehicle } = useFleet();
   const { trips, addTrip } = useTrips();
@@ -35,6 +60,25 @@ export function Trips() {
   const [tierOverride, setTierOverride] = useState(false);
 
   const [filterType, setFilterType] = useState("Todos");
+  const [destino, setDestino] = useState("");
+  const [destinoSugestoesApi, setDestinoSugestoesApi] = useState<string[]>([]);
+
+  const { obterPosicao, erro: erroGps, carregando: gpsCarregando } = useGeolocation();
+  const { autoPreencher, status: autoFillStatus, erro: erroAutoFill, reset: resetAutoFill } =
+    useViagemAutoFill();
+
+  const autoFillCarregando = autoFillStatus === "carregando" || gpsCarregando;
+  const autoFillErro = erroGps ?? erroAutoFill;
+
+  const destinoSugestoesCompletas = useMemo(() => {
+    const merged = [...destinoSugestoesApi, ...destinoSugestoes];
+    const unique = Array.from(new Set(merged.map((x) => x.trim()).filter(Boolean)));
+    const term = normalizeText(destino);
+    if (!term) return unique.slice(0, 10);
+    return unique
+      .filter((item) => normalizeText(item).includes(term))
+      .slice(0, 10);
+  }, [destinoSugestoesApi, destino]);
 
   const [formData, setFormData] = useState({
     fleetVehicleId: "",
@@ -48,6 +92,7 @@ export function Trips() {
     avgSpeedKmh: "80",
     roadCondition: "Média" as RoadCondition,
     dayPeriod: "manha" as DayPeriod,
+    temperatureC: null as number | null,
     tireTier: "intermediario" as TireQualityTier,
   });
 
@@ -76,7 +121,16 @@ export function Trips() {
   );
 
   const cargoKgCalc = formData.hasCargo ? Math.max(0, Number(formData.weight) || 0) : 0;
-  const tempCelsius = temperatureForPeriod(formData.dayPeriod);
+  const tempCelsius =
+    formData.temperatureC ?? temperatureForPeriod(formData.dayPeriod);
+
+  const periodoOptions = useMemo(() => {
+    const overrides =
+      formData.temperatureC !== null
+        ? { [formData.dayPeriod]: formData.temperatureC }
+        : undefined;
+    return periodOptionsWithTemperature(overrides);
+  }, [formData.dayPeriod, formData.temperatureC]);
 
   const lifeConsumedPreview = useMemo(() => {
     if (!selectedFleetVehicle || !formData.vehicleType) return 0;
@@ -171,6 +225,52 @@ export function Trips() {
     ? NOMINAL_LIFE_KM[selectedFleetVehicle.type] ?? null
     : null;
 
+  useEffect(() => {
+    const term = destino.trim();
+    if (term.length < 3) {
+      setDestinoSugestoesApi([]);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void buscarSugestoesDestino(term)
+        .then((items) => setDestinoSugestoesApi(items))
+        .catch(() => setDestinoSugestoesApi([]));
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [destino]);
+
+  const handleAutoPreencher = async () => {
+    resetAutoFill();
+    if (!destino.trim()) return;
+
+    try {
+      const origem = await obterPosicao();
+      const destinoNormalizado = normalizeText(destino);
+      const destinoSugerido =
+        [...destinoSugestoesApi, ...destinoSugestoes].find((item) =>
+          normalizeText(item).startsWith(destinoNormalizado)
+        ) ?? destino.trim();
+      const coordDestino = await geocodificarEndereco(destinoSugerido, origem);
+      const result = await autoPreencher(
+        origem,
+        coordDestino,
+        formData.vehicleType || "Carro"
+      );
+
+      setFormData((f) => ({
+        ...f,
+        distance: String(result.distanciaKm),
+        avgSpeedKmh: String(result.velocidadeMediaKmh),
+        dayPeriod: result.periodoValor,
+        temperatureC: result.temperaturaC,
+      }));
+    } catch {
+      // Erros expostos via hooks (erroGps / erroAutoFill)
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalWeight = formData.hasCargo ? formData.weight : "0";
@@ -212,6 +312,8 @@ export function Trips() {
     };
     addTrip(newTrip);
     setTierOverride(false);
+    setDestino("");
+    resetAutoFill();
     setFormData({
       fleetVehicleId: "",
       vehicle: "",
@@ -224,6 +326,7 @@ export function Trips() {
       avgSpeedKmh: "80",
       roadCondition: "Média",
       dayPeriod: "manha",
+      temperatureC: null,
       tireTier: "intermediario",
     });
   };
@@ -235,8 +338,8 @@ export function Trips() {
   return (
     <div className="p-4 md:p-6 lg:p-8">
       <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2">Viagens</h1>
-        <p className="text-sm md:text-base text-gray-600">
+        <h1 className="mb-2 text-2xl font-semibold text-slate-900 md:text-3xl">Viagens</h1>
+        <p className="text-sm text-slate-600 md:text-base">
           Registre viagens e veja o impacto estimado na vida útil dos pneus
         </p>
       </div>
@@ -244,14 +347,14 @@ export function Trips() {
       <Card className="mb-6 md:mb-8">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-green-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
+              <MapPin className="h-5 w-5 text-green-700" />
             </div>
             <div>
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Registrar Nova Viagem</h3>
-              <p className="text-xs md:text-sm text-gray-600">
-                Distância, peso total (veículo + carga), velocidade em km/h, estrada, período do dia
-                (temperatura aproximada) e linha dos pneus
+              <h3 className="text-base font-semibold text-slate-900 md:text-lg">Registrar Nova Viagem</h3>
+              <p className="text-xs text-slate-600 md:text-sm">
+                Informe o destino para preencher distância, velocidade e período automaticamente,
+                ou preencha manualmente
               </p>
             </div>
           </div>
@@ -260,11 +363,11 @@ export function Trips() {
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Tipo de Veículo</label>
+                <label className="mb-2 block text-sm text-slate-700">Tipo de Veículo</label>
                 <select
                   value={formData.vehicleType}
                   onChange={(e) => handleVehicleTypeChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
                   required
                 >
                   <option value="">Selecione o tipo</option>
@@ -274,12 +377,12 @@ export function Trips() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Veículo cadastrado</label>
+                <label className="mb-2 block text-sm text-slate-700">Veículo cadastrado</label>
                 <select
                   value={formData.fleetVehicleId}
                   disabled={!formData.vehicleType || vehiclesForType.length === 0}
                   onChange={(e) => handleFleetVehicleChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-500"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 disabled:bg-slate-100 disabled:text-slate-500"
                   required
                 >
                   <option value="">
@@ -307,6 +410,56 @@ export function Trips() {
               />
             </div>
 
+            <div className="space-y-3 rounded-xl border border-green-200/60 bg-green-50/60 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <Input
+                    label="Destino"
+                    placeholder="Ex: Maringá, PR"
+                    value={destino}
+                    list="destino-sugestoes"
+                    onChange={(e) => {
+                      setDestino(e.target.value);
+                      if (autoFillErro) resetAutoFill();
+                    }}
+                  />
+                  <datalist id="destino-sugestoes">
+                    {destinoSugestoesCompletas.map((cidade) => (
+                      <option key={cidade} value={cidade} />
+                    ))}
+                  </datalist>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleAutoPreencher}
+                  disabled={autoFillCarregando || !destino.trim()}
+                  className="shrink-0 gap-2 sm:mb-0"
+                >
+                  {autoFillCarregando ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Calculando...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="h-4 w-4" />
+                      Detectar automaticamente
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-slate-600">
+                Digite parte do destino (ex.: "Maring") e selecione a sugestão. A origem usa sua
+                localização atual.
+              </p>
+              {autoFillErro && (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {autoFillErro}
+                </p>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <Input
                 label="Velocidade média (km/h)"
@@ -318,7 +471,7 @@ export function Trips() {
                 required
               />
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Condição da estrada</label>
+                <label className="mb-2 block text-sm text-slate-700">Condição da estrada</label>
                 <select
                   value={formData.roadCondition}
                   onChange={(e) =>
@@ -327,7 +480,7 @@ export function Trips() {
                       roadCondition: e.target.value as RoadCondition,
                     }))
                   }
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
                 >
                   <option value="Boa">Boa</option>
                   <option value="Média">Média</option>
@@ -335,24 +488,27 @@ export function Trips() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Período do dia</label>
+                <label className="mb-2 block text-sm text-slate-700">Período do dia</label>
                 <select
                   value={formData.dayPeriod}
                   onChange={(e) =>
                     setFormData((f) => ({
                       ...f,
                       dayPeriod: e.target.value as DayPeriod,
+                      temperatureC: null,
                     }))
                   }
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
                 >
-                  <option value="manha">Manhã — 25 °C</option>
-                  <option value="tarde">Tarde — 30 °C</option>
-                  <option value="noite">Noite — 20 °C</option>
+                  {periodoOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="md:col-span-2 lg:col-span-2">
-                <label className="block text-sm text-gray-700 mb-2">Linha dos pneus</label>
+                <label className="mb-2 block text-sm text-slate-700">Linha dos pneus</label>
                 {selectedFleetVehicle && (
                   <label className="flex items-center gap-2 mb-2 text-sm text-gray-600 cursor-pointer">
                     <input
@@ -373,7 +529,7 @@ export function Trips() {
                       tireTier: e.target.value as TireQualityTier,
                     }))
                   }
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-600"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 disabled:bg-slate-100 disabled:text-slate-600"
                 >
                   <option value="economico">{tierLabels.economico}</option>
                   <option value="intermediario">{tierLabels.intermediario}</option>
@@ -391,14 +547,14 @@ export function Trips() {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-700">Tem carga?</span>
+              <span className="text-sm text-slate-700">Tem carga?</span>
               <button
                 type="button"
                 onClick={() => handleHasCargoChange(true)}
                 className={`px-4 py-2 rounded-xl border text-sm transition-all ${
                   formData.hasCargo
                     ? "bg-green-100 border-green-200 text-green-800"
-                    : "bg-white border-gray-200 text-gray-700"
+                    : "bg-white border-slate-200 text-slate-700"
                 }`}
               >
                 Sim
@@ -409,7 +565,7 @@ export function Trips() {
                 className={`px-4 py-2 rounded-xl border text-sm transition-all ${
                   !formData.hasCargo
                     ? "bg-green-100 border-green-200 text-green-800"
-                    : "bg-white border-gray-200 text-gray-700"
+                    : "bg-white border-slate-200 text-slate-700"
                 }`}
               >
                 Não
@@ -492,9 +648,9 @@ export function Trips() {
             )}
 
             {formData.vehicleType && selectedFleetVehicle && (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2">
-                <p className="text-sm font-medium text-gray-900">Antes de salvar — pré-visualização</p>
-                <p className="text-sm text-gray-700">
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-sm font-medium text-slate-900">Antes de salvar — pré-visualização</p>
+                <p className="text-sm text-slate-700">
                   Consumo estimado de vida útil por pneu (esta viagem):{" "}
                   <span className="font-semibold text-gray-900">
                     {lifeConsumedPreview.toFixed(1)}%
@@ -511,10 +667,12 @@ export function Trips() {
                     {wearLevelPreview}
                   </span>
                 </p>
-                <p className="text-sm text-gray-700">
-                  Temperatura aproximada: <span className="font-medium">{tempCelsius} °C</span>
+                <p className="text-sm text-slate-700">
+                  Temperatura{" "}
+                  {formData.temperatureC !== null ? "atual" : "aproximada"}:{" "}
+                  <span className="font-medium">{Math.round(tempCelsius)} °C</span>
                 </p>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-slate-700">
                   Pneus no veículo: <span className="font-semibold">{tireCount}</span> — o mesmo
                   percentual vale para todos
                 </p>
@@ -532,15 +690,15 @@ export function Trips() {
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Viagens registradas</h3>
-              <p className="text-xs md:text-sm text-gray-600">{filteredTrips.length} viagens encontrada(s)</p>
+              <h3 className="text-base font-semibold text-slate-900 md:text-lg">Viagens registradas</h3>
+              <p className="text-xs text-slate-600 md:text-sm">{filteredTrips.length} viagens encontrada(s)</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs md:text-sm text-gray-600">Filtrar:</span>
+              <span className="text-xs text-slate-600 md:text-sm">Filtrar:</span>
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="px-3 md:px-4 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-xs md:text-sm"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 md:px-4 md:text-sm"
               >
                 <option value="Todos">Todos</option>
                 <option value="Caminhão">Caminhão</option>
@@ -554,41 +712,41 @@ export function Trips() {
           <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                <tr className="border-b border-slate-200 bg-slate-50/60">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Veículo
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Tipo
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Distância (km)
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Carga?
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Peso carga (kg)
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     V méd (km/h)
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Estrada
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Vida / viagem %
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Pneus
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Valor
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Uso
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Data
                   </th>
                 </tr>
@@ -597,11 +755,11 @@ export function Trips() {
                 {filteredTrips.map((trip, index) => (
                   <tr
                     key={trip.id}
-                    className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                    className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${
+                      index % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                     }`}
                   >
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-900 font-medium">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900 md:py-4 lg:px-6">
                       {trip.vehicle}
                     </td>
                     <td className="px-4 lg:px-6 py-3 md:py-4">
@@ -609,15 +767,15 @@ export function Trips() {
                         {trip.vehicleType}
                       </span>
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.distance}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.hasCargo ? "Sim" : "Não"}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.distance}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.hasCargo ? "Sim" : "Não"}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">
                       {Number(trip.weight).toLocaleString()}
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.avgSpeedKmh ?? "—"}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.roadCondition ?? "—"}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4">
-                      <span className="text-sm font-medium text-gray-900">{trip.estimatedWear}%</span>
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.avgSpeedKmh ?? "—"}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.roadCondition ?? "—"}</td>
+                    <td className="px-4 py-3 md:py-4 lg:px-6">
+                      <span className="text-sm font-medium text-slate-900">{trip.estimatedWear}%</span>
                       <span
                         className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs ${
                           trip.wearLevel === "Alto"
@@ -630,8 +788,8 @@ export function Trips() {
                         {trip.wearLevel}
                       </span>
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.tireCount}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-green-600 font-medium">
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.tireCount}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-green-600 md:py-4 lg:px-6">
                       R$ {Number(trip.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 lg:px-6 py-3 md:py-4">
@@ -639,64 +797,64 @@ export function Trips() {
                         {trip.type}
                       </span>
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{trip.date}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.date}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="lg:hidden space-y-3 p-4">
+          <div className="space-y-3 p-4 lg:hidden">
             {filteredTrips.map((trip) => (
-              <div key={trip.id} className="bg-white border border-gray-100 rounded-xl p-4 space-y-3">
+              <div key={trip.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-900 text-sm md:text-base">{trip.vehicle}</h4>
+                    <h4 className="text-sm font-medium text-slate-900 md:text-base">{trip.vehicle}</h4>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
                         {trip.vehicleType}
                       </span>
-                      <span className="text-xs text-gray-500">{trip.date}</span>
+                      <span className="text-xs text-slate-500">{trip.date}</span>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-2">
                   <div>
-                    <p className="text-xs text-gray-500">Distância</p>
-                    <p className="text-sm font-medium text-gray-900">{trip.distance} km</p>
+                    <p className="text-xs text-slate-500">Distância</p>
+                    <p className="text-sm font-medium text-slate-900">{trip.distance} km</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Tem carga?</p>
-                    <p className="text-sm font-medium text-gray-900">{trip.hasCargo ? "Sim" : "Não"}</p>
+                    <p className="text-xs text-slate-500">Tem carga?</p>
+                    <p className="text-sm font-medium text-slate-900">{trip.hasCargo ? "Sim" : "Não"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Peso carga</p>
-                    <p className="text-sm font-medium text-gray-900">{Number(trip.weight).toLocaleString()} kg</p>
+                    <p className="text-xs text-slate-500">Peso carga</p>
+                    <p className="text-sm font-medium text-slate-900">{Number(trip.weight).toLocaleString()} kg</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Vida / viagem</p>
-                    <p className="text-sm font-medium text-gray-900">{trip.estimatedWear}% ({trip.wearLevel})</p>
+                    <p className="text-xs text-slate-500">Vida / viagem</p>
+                    <p className="text-sm font-medium text-slate-900">{trip.estimatedWear}% ({trip.wearLevel})</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Vméd</p>
-                    <p className="text-sm font-medium text-gray-900">{trip.avgSpeedKmh ?? "—"} km/h</p>
+                    <p className="text-xs text-slate-500">Vméd</p>
+                    <p className="text-sm font-medium text-slate-900">{trip.avgSpeedKmh ?? "—"} km/h</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Estrada</p>
-                    <p className="text-sm font-medium text-gray-900">{trip.roadCondition ?? "—"}</p>
+                    <p className="text-xs text-slate-500">Estrada</p>
+                    <p className="text-sm font-medium text-slate-900">{trip.roadCondition ?? "—"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Pneus afetados</p>
-                    <p className="text-sm font-medium text-gray-900">{trip.tireCount}</p>
+                    <p className="text-xs text-slate-500">Pneus afetados</p>
+                    <p className="text-sm font-medium text-slate-900">{trip.tireCount}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Valor</p>
+                    <p className="text-xs text-slate-500">Valor</p>
                     <p className="text-sm font-medium text-green-600">
                       R$ {Number(trip.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
-                <div className="pt-1 border-t border-gray-100">
+                <div className="border-t border-slate-100 pt-1">
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-700">
                     {trip.type}
                   </span>

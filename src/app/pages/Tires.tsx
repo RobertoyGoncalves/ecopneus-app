@@ -214,23 +214,23 @@ export function Tires() {
     <div className="p-4 md:p-6 lg:p-8">
       <div className="mb-6 md:mb-8 flex flex-col gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2">Pneus</h1>
-          <p className="text-sm md:text-base text-gray-600">
+          <h1 className="mb-2 text-2xl font-semibold text-slate-900 md:text-3xl">Pneus</h1>
+          <p className="text-sm text-slate-600 md:text-base">
             Veículos cadastrados geram pneus automaticamente. Aqui você inclui, troca ou ajusta dados.
           </p>
           {fleetLoading && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               Carregando frota da nuvem…
             </div>
           )}
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="flex items-center gap-2 flex-1">
-            <span className="text-xs md:text-sm text-gray-600 whitespace-nowrap">Filtrar:</span>
+            <span className="whitespace-nowrap text-xs text-slate-600 md:text-sm">Filtrar:</span>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="flex-1 sm:flex-none px-3 md:px-4 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-xs md:text-sm"
+              className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 sm:flex-none md:px-4 md:text-sm"
             >
               <option value="Todos">Todos</option>
               <option value="Caminhão">Caminhão</option>
@@ -253,7 +253,7 @@ export function Tires() {
         <Card className="mb-6 md:mb-8">
           <CardContent>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-900">
+              <h3 className="text-base font-semibold text-slate-900">
                 {flowMode === "edit"
                   ? "Editar pneu"
                   : flowMode === "replace"
@@ -263,7 +263,7 @@ export function Tires() {
               <button
                 type="button"
                 onClick={cancelForm}
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm text-slate-600 hover:text-slate-900"
               >
                 Fechar
               </button>
@@ -273,11 +273,11 @@ export function Tires() {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm text-gray-700 mb-2">Veículo</label>
+                      <label className="mb-2 block text-sm text-slate-700">Veículo</label>
                       <select
                         value={formData.fleetVehicleId}
                         onChange={(e) => handleVehicleChange(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
                         required
                       >
                         <option value="">Escolha marca, modelo e placa</option>
@@ -289,7 +289,7 @@ export function Tires() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-700 mb-2">Operação</label>
+                      <label className="mb-2 block text-sm text-slate-700">Operação</label>
                       <select
                         value={flowMode === "replace" ? "replace" : "add"}
                         onChange={(e) => {
@@ -297,7 +297,7 @@ export function Tires() {
                           setFlowMode(m);
                           setFormData((f) => ({ ...f, replaceTargetId: "" }));
                         }}
-                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
                         disabled={!formData.fleetVehicleId}
                       >
                         <option value="add">Adicionar pneu ao veículo</option>
@@ -308,7 +308,7 @@ export function Tires() {
 
                   {flowMode === "replace" && formData.fleetVehicleId && (
                     <div>
-                      <label className="block text-sm text-gray-700 mb-2">
+                      <label className="mb-2 block text-sm text-slate-700">
                         Qual pneu está sendo substituído?
                       </label>
                       <select
@@ -316,7 +316,7 @@ export function Tires() {
                         onChange={(e) =>
                           setFormData((f) => ({ ...f, replaceTargetId: e.target.value }))
                         }
-                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
                         required={flowMode === "replace"}
                       >
                         <option value="">Selecione o pneu atual</option>
@@ -345,10 +345,10 @@ export function Tires() {
                   required
                 />
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm text-slate-700">
                     Modelo do pneu <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <div className="min-w-0 flex-1">
                       <Autocomplete<string, false, false, true>
                         freeSolo
@@ -381,7 +381,7 @@ export function Tires() {
                     <Button
                       type="button"
                       variant="secondary"
-                      className="shrink-0 self-start whitespace-nowrap text-sm"
+                      className="shrink-0 whitespace-nowrap text-sm sm:self-start"
                       disabled={!formData.model.trim()}
                       onClick={() => void handleFetchSpecs()}
                     >
@@ -390,7 +390,7 @@ export function Tires() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-700 mb-2">Fabricante</label>
+                  <label className="mb-2 block text-sm text-slate-700">Fabricante</label>
                   <Autocomplete<string, false, false, true>
                     freeSolo
                     disablePortal
@@ -423,7 +423,7 @@ export function Tires() {
                   value={formData.estimatedLifeKm}
                   onChange={(e) => setFormData({ ...formData, estimatedLifeKm: e.target.value })}
                 />
-                <p className="mt-1.5 text-xs text-gray-500">
+                <p className="mt-1.5 text-xs text-slate-500">
                   Consulta catálogo local ou faixa do veículo: econômico ~40.000 km | intermediário ~60.000 km | premium ~80.000 km
                 </p>
               </div>
@@ -457,35 +457,35 @@ export function Tires() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {filteredTires.map((tire) => (
-          <Card key={tire.id} className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
+          <Card key={tire.id} className="transition-all duration-200 hover:-translate-y-1 hover:shadow-xl">
             <CardContent className="p-4 md:p-6">
               <div className="flex items-start justify-between mb-4 gap-2">
-                <div className="w-12 h-12 md:w-14 md:h-14 bg-gray-100 rounded-2xl flex items-center justify-center shrink-0">
-                  <CircleDot className="w-6 h-6 md:w-8 md:h-8 text-gray-600" />
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 md:h-14 md:w-14">
+                  <CircleDot className="h-6 w-6 text-slate-600 md:h-8 md:w-8" />
                 </div>
                 <span className={`px-2 md:px-3 py-1 rounded-full text-xs border ${getHealthColor(tire.health)}`}>
                   {getHealthLabel(tire.health)}
                 </span>
               </div>
 
-              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-1">{tire.model}</h3>
-              <p className="text-xs md:text-sm text-gray-600 mb-1">{tire.brand}</p>
-              <p className="text-xs text-gray-500 mb-4">
+              <h3 className="mb-1 text-base font-semibold text-slate-900 md:text-lg">{tire.model}</h3>
+              <p className="mb-1 text-xs text-slate-600 md:text-sm">{tire.brand}</p>
+              <p className="mb-4 text-xs text-slate-500">
                 {tire.vehicleType} · {tire.vehicle || "Sem veículo"}
               </p>
 
               <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs md:text-sm text-gray-600">Eixo</span>
-                  <span className="text-xs md:text-sm font-medium text-gray-900">{tire.axis}</span>
+                  <span className="text-xs text-slate-600 md:text-sm">Eixo</span>
+                  <span className="text-xs font-medium text-slate-900 md:text-sm">{tire.axis}</span>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs md:text-sm text-gray-600">Vida útil</span>
-                    <span className="text-xs md:text-sm font-medium text-gray-900">{tire.health}%</span>
+                    <span className="text-xs text-slate-600 md:text-sm">Vida útil</span>
+                    <span className="text-xs font-medium text-slate-900 md:text-sm">{tire.health}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
                         tire.health >= 80 ? "bg-green-500"
@@ -498,7 +498,7 @@ export function Tires() {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2 border-t border-gray-100">
+              <div className="flex flex-col gap-2 border-t border-slate-100 pt-2 sm:flex-row">
                 <Button
                   type="button"
                   variant="ghost"

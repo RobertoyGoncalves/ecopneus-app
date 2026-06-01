@@ -110,12 +110,12 @@ export function Vehicles() {
   return (
     <div className="p-4 md:p-6 lg:p-8">
       <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-2">Veículos</h1>
-        <p className="text-sm md:text-base text-gray-600">Gerencie todos os seus veículos em um só lugar</p>
+        <h1 className="mb-2 text-2xl font-semibold text-slate-900 md:text-3xl">Veículos</h1>
+        <p className="text-sm text-slate-600 md:text-base">Gerencie todos os seus veículos em um só lugar</p>
       </div>
 
       {fleetLoading && (
-        <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           Carregando frota da nuvem…
         </div>
       )}
@@ -124,12 +124,12 @@ export function Vehicles() {
       <Card className="mb-6 md:mb-8">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-              <Car className="w-5 h-5 text-green-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
+              <Car className="h-5 w-5 text-green-700" />
             </div>
             <div>
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Cadastrar Novo Veículo</h3>
-              <p className="text-xs md:text-sm text-gray-600">
+              <h3 className="text-base font-semibold text-slate-900 md:text-lg">Cadastrar Novo Veículo</h3>
+              <p className="text-xs text-slate-600 md:text-sm">
                 Pneus com mesmo modelo/fabricante são gerados para a página Pneus
               </p>
             </div>
@@ -139,11 +139,11 @@ export function Vehicles() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Tipo de Veículo</label>
+                <label className="mb-2 block text-sm text-slate-700">Tipo de Veículo</label>
                 <select
                   value={formData.type}
                   onChange={(e) => handleTypeChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
                   required
                 >
                   <option value="">Selecione o tipo</option>
@@ -153,7 +153,7 @@ export function Vehicles() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Marca do veículo</label>
+                <label className="mb-2 block text-sm text-slate-700">Marca do veículo</label>
                 <Autocomplete<string, false, false, true>
                   freeSolo
                   disablePortal
@@ -173,7 +173,7 @@ export function Vehicles() {
                     <TextField {...params} required placeholder="Digite ou escolha" size="small" />
                   )}
                 />
-                <p className="text-xs text-gray-500 mt-1">Lista de marcas populares no Brasil</p>
+                <p className="mt-1 text-xs text-slate-500">Lista de marcas populares no Brasil</p>
               </div>
               <Input
                 label="Modelo"
@@ -204,7 +204,7 @@ export function Vehicles() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-gray-700 mb-2">Fabricante do pneu</label>
+                <label className="mb-2 block text-sm text-slate-700">Fabricante do pneu</label>
                 <Autocomplete<string, false, false, true>
                   freeSolo
                   disablePortal
@@ -235,7 +235,7 @@ export function Vehicles() {
                 required
               />
               <div>
-                <label className="block text-sm text-gray-700 mb-2">
+                <label className="mb-2 block text-sm text-slate-700">
                   Linha dos pneus (modelo empírico)
                 </label>
                 <select
@@ -246,7 +246,7 @@ export function Vehicles() {
                       tireQualityTier: e.target.value as TireQualityTier,
                     }))
                   }
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
                   required
                 >
                   <option value="economico">Econômico — desgaste relativo maior</option>
@@ -270,10 +270,10 @@ export function Vehicles() {
                 />
               </div>
             ) : formData.type ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                <p className="text-sm text-gray-700">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-sm text-slate-700">
                   Quantidade de pneus:{" "}
-                  <span className="font-semibold text-gray-900">{formData.tireCount}</span>
+                  <span className="font-semibold text-slate-900">{formData.tireCount}</span>
                   {" "}(uso automático conforme tipo)
                 </p>
               </div>
@@ -291,15 +291,15 @@ export function Vehicles() {
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Veículos cadastrados</h3>
-              <p className="text-xs md:text-sm text-gray-600">{filteredVehicles.length} veículo(s) encontrado(s)</p>
+              <h3 className="text-base font-semibold text-slate-900 md:text-lg">Veículos cadastrados</h3>
+              <p className="text-xs text-slate-600 md:text-sm">{filteredVehicles.length} veículo(s) encontrado(s)</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs md:text-sm text-gray-600">Filtrar:</span>
+              <span className="text-xs text-slate-600 md:text-sm">Filtrar:</span>
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="px-3 md:px-4 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-xs md:text-sm"
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 md:px-4 md:text-sm"
               >
                 <option value="Todos">Todos</option>
                 <option value="Caminhão">Caminhão</option>
@@ -313,25 +313,25 @@ export function Vehicles() {
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Tipo</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Marca</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Modelo</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Ano</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Placa</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Pneus</th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">
+                <tr className="border-b border-slate-200 bg-slate-50/60">
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Marca</th>
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Modelo</th>
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Ano</th>
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Placa</th>
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Pneus</th>
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
                     Pneu (fab./modelo / linha)
                   </th>
-                  <th className="text-left px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600">Ações</th>
+                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredVehicles.map((vehicle, index) => (
                   <tr
                     key={vehicle.id}
-                    className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                    className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${
+                      index % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                     }`}
                   >
                     <td className="px-4 lg:px-6 py-3 md:py-4">
@@ -344,18 +344,18 @@ export function Vehicles() {
                         {vehicle.type}
                       </span>
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-900 font-medium">{vehicle.brand}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{vehicle.model}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{vehicle.year}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900 md:py-4 lg:px-6">{vehicle.brand}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{vehicle.model}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{vehicle.year}</td>
                     <td className="px-4 lg:px-6 py-3 md:py-4">
-                      <span className="font-mono text-gray-900 bg-gray-100 px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm">
+                      <span className="rounded-lg bg-slate-100 px-2 py-1 font-mono text-xs text-slate-900 md:px-3 md:text-sm">
                         {vehicle.plate}
                       </span>
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">{vehicle.tireCount}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4 text-sm text-gray-700">
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{vehicle.tireCount}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">
                       {vehicle.tireManufacturer} {vehicle.tireModel}
-                      <span className="block text-xs text-gray-500 mt-0.5">
+                      <span className="mt-0.5 block text-xs text-slate-500">
                         Linha:{" "}
                         {vehicle.tireQualityTier === "economico"
                           ? "Econômico"
@@ -375,9 +375,9 @@ export function Vehicles() {
             </table>
           </div>
 
-          <div className="md:hidden space-y-3 p-4">
+          <div className="space-y-3 p-4 md:hidden">
             {filteredVehicles.map((vehicle) => (
-              <div key={vehicle.id} className="bg-white border border-gray-100 rounded-xl p-4 space-y-3">
+              <div key={vehicle.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
@@ -390,8 +390,8 @@ export function Vehicles() {
                         {vehicle.type}
                       </span>
                     </div>
-                    <h4 className="font-medium text-gray-900">{vehicle.brand} {vehicle.model}</h4>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <h4 className="font-medium text-slate-900">{vehicle.brand} {vehicle.model}</h4>
+                    <p className="mt-1 text-xs text-slate-500">
                       Pneus: {vehicle.tireManufacturer} {vehicle.tireModel} • Linha{" "}
                       {vehicle.tireQualityTier === "economico"
                         ? "Econômico"
@@ -401,21 +401,26 @@ export function Vehicles() {
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-2">
                   <div>
-                    <p className="text-xs text-gray-500">Ano</p>
-                    <p className="text-sm font-medium text-gray-900">{vehicle.year}</p>
+                    <p className="text-xs text-slate-500">Ano</p>
+                    <p className="text-sm font-medium text-slate-900">{vehicle.year}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Placa</p>
-                    <p className="text-sm font-mono font-medium text-gray-900">{vehicle.plate}</p>
+                    <p className="text-xs text-slate-500">Placa</p>
+                    <p className="text-sm font-mono font-medium text-slate-900">{vehicle.plate}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Quantidade pneus</p>
-                    <p className="text-sm font-medium text-gray-900">{vehicle.tireCount}</p>
+                    <p className="text-xs text-slate-500">Quantidade pneus</p>
+                    <p className="text-sm font-medium text-slate-900">{vehicle.tireCount}</p>
                   </div>
                 </div>
-                <Button variant="ghost" type="button" onClick={() => void removeVehicle(vehicle.id)} className="w-full text-sm">
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => void removeVehicle(vehicle.id)}
+                  className="h-10 w-full text-sm"
+                >
                   Remover
                 </Button>
               </div>
