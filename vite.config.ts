@@ -31,6 +31,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
       manifest: {
         name: 'EcoPneus',
@@ -68,4 +69,8 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  optimizeDeps: {
+    include: ['mapbox-gl'],
+  },
 })

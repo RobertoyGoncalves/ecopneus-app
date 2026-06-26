@@ -171,7 +171,7 @@ export async function remoteApplyTripWear(userId: string, vehicleId: string, lif
   for (const t of tires ?? []) {
     const id = String((t as Record<string, unknown>).id);
     const health = Number((t as Record<string, unknown>).health);
-    const next = Math.round(Math.max(0, health - lifeDeltaPercent) * 10) / 10;
+    const next = Math.round(Math.max(0, health - lifeDeltaPercent) * 100) / 100;
     const { error } = await supabase.from("tires").update({ health: next }).eq("id", id).eq("user_id", userId);
     if (error) throw error;
   }

@@ -12,6 +12,7 @@ export type TireLifespanResult = {
   km_estimado: number | null;
   fonte: string | null;
   origem?: "catalogo" | "tier";
+  tier?: TireQualityTier;
 };
 
 /** Km de referência por faixa — alinhado ao texto do formulário. */
@@ -198,22 +199,23 @@ function findPartial(brandKey: string, modelKey: string): TireSpecEntry | null {
 }
 
 function lookupCatalog(brand: string, model: string): TireLifespanResult | null {
+  const entry = findCatalogEntry(brand, model);
+  if (!entry) return null;
+  return {
+    km_estimado: entry.km_estimado,
+    fonte: entry.fonte,
+    origem: "catalogo",
+    tier: entry.tier,
+  };
+}
+
+/** Entrada exata ou parcial do catálogo local (marca + modelo). */
+export function findCatalogEntry(brand: string, model: string): TireSpecEntry | null {
   const modelKey = normalizeKey(model);
   if (!modelKey) return null;
 
   const brandKey = normalizeKey(brand);
-
-  const exact = findExact(brandKey, modelKey);
-  if (exact) {
-    return { km_estimado: exact.km_estimado, fonte: exact.fonte, origem: "catalogo" };
-  }
-
-  const partial = findPartial(brandKey, modelKey);
-  if (partial) {
-    return { km_estimado: partial.km_estimado, fonte: partial.fonte, origem: "catalogo" };
-  }
-
-  return null;
+  return findExact(brandKey, modelKey) ?? findPartial(brandKey, modelKey);
 }
 
 /**

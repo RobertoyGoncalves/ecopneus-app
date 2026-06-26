@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
-import { Loader2, MapPin, Navigation } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { formatVehicleLabel, useFleet } from "../contexts/FleetContext";
 import { useTrips } from "../contexts/TripsContext";
 import type { Trip } from "../domain/trip";
@@ -10,13 +10,12 @@ import type { DayPeriod, RoadCondition, TireQualityTier } from "../domain/wearMo
 import {
   computeTripLifeConsumptionPercent,
   curbWeightForVehicleType,
+  formatWearPercent,
   NOMINAL_LIFE_KM,
   temperatureForPeriod,
   wearSeverityLevel,
 } from "../domain/wearModel";
-import { useGeolocation } from "../hooks/useGeolocation";
-import { useViagemAutoFill } from "../hooks/useViagemAutoFill";
-import { buscarSugestoesDestino, geocodificarEndereco } from "@/services/routeService";
+import { MapaRota, type MapaRotaResultado } from "../components/MapaRota";
 import { periodOptionsWithTemperature } from "../utils/periodoUtils";
 
 const averageCargoByVehicleType: Record<string, { weight: string; value: string; type: string }> = {
@@ -31,27 +30,6 @@ const tierLabels: Record<TireQualityTier, string> = {
   premium: "Premium",
 };
 
-const destinoSugestoes = [
-  "Maringá, PR",
-  "Londrina, PR",
-  "Curitiba, PR",
-  "Cascavel, PR",
-  "Ponta Grossa, PR",
-  "São José dos Pinhais, PR",
-  "Foz do Iguaçu, PR",
-  "Campinas, SP",
-  "São Paulo, SP",
-  "Ribeirão Preto, SP",
-  "Jundiaí, SP",
-];
-
-const normalizeText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-
 export function Trips() {
   const { vehicles, tires, applyTripWearToVehicle } = useFleet();
   const { trips, addTrip } = useTrips();
@@ -60,25 +38,6 @@ export function Trips() {
   const [tierOverride, setTierOverride] = useState(false);
 
   const [filterType, setFilterType] = useState("Todos");
-  const [destino, setDestino] = useState("");
-  const [destinoSugestoesApi, setDestinoSugestoesApi] = useState<string[]>([]);
-
-  const { obterPosicao, erro: erroGps, carregando: gpsCarregando } = useGeolocation();
-  const { autoPreencher, status: autoFillStatus, erro: erroAutoFill, reset: resetAutoFill } =
-    useViagemAutoFill();
-
-  const autoFillCarregando = autoFillStatus === "carregando" || gpsCarregando;
-  const autoFillErro = erroGps ?? erroAutoFill;
-
-  const destinoSugestoesCompletas = useMemo(() => {
-    const merged = [...destinoSugestoesApi, ...destinoSugestoes];
-    const unique = Array.from(new Set(merged.map((x) => x.trim()).filter(Boolean)));
-    const term = normalizeText(destino);
-    if (!term) return unique.slice(0, 10);
-    return unique
-      .filter((item) => normalizeText(item).includes(term))
-      .slice(0, 10);
-  }, [destinoSugestoesApi, destino]);
 
   const [formData, setFormData] = useState({
     fleetVehicleId: "",
@@ -225,50 +184,14 @@ export function Trips() {
     ? NOMINAL_LIFE_KM[selectedFleetVehicle.type] ?? null
     : null;
 
-  useEffect(() => {
-    const term = destino.trim();
-    if (term.length < 3) {
-      setDestinoSugestoesApi([]);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void buscarSugestoesDestino(term)
-        .then((items) => setDestinoSugestoesApi(items))
-        .catch(() => setDestinoSugestoesApi([]));
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [destino]);
-
-  const handleAutoPreencher = async () => {
-    resetAutoFill();
-    if (!destino.trim()) return;
-
-    try {
-      const origem = await obterPosicao();
-      const destinoNormalizado = normalizeText(destino);
-      const destinoSugerido =
-        [...destinoSugestoesApi, ...destinoSugestoes].find((item) =>
-          normalizeText(item).startsWith(destinoNormalizado)
-        ) ?? destino.trim();
-      const coordDestino = await geocodificarEndereco(destinoSugerido, origem);
-      const result = await autoPreencher(
-        origem,
-        coordDestino,
-        formData.vehicleType || "Carro"
-      );
-
-      setFormData((f) => ({
-        ...f,
-        distance: String(result.distanciaKm),
-        avgSpeedKmh: String(result.velocidadeMediaKmh),
-        dayPeriod: result.periodoValor,
-        temperatureC: result.temperaturaC,
-      }));
-    } catch {
-      // Erros expostos via hooks (erroGps / erroAutoFill)
-    }
+  const handleRotaCalculada = (resultado: MapaRotaResultado) => {
+    setFormData((f) => ({
+      ...f,
+      distance: String(resultado.distanciaKm),
+      avgSpeedKmh: String(resultado.velocidadeMediaKmh),
+      dayPeriod: resultado.periodoValor,
+      temperatureC: resultado.temperaturaC,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -279,9 +202,12 @@ export function Trips() {
 
     if (!selectedFleetVehicle) return;
 
+    const distanceKm = Math.max(0, Number(formData.distance) || 0);
+    if (!distanceKm) return;
+
     const delta = computeTripLifeConsumptionPercent({
       vehicleType: formData.vehicleType,
-      distanceKm: Math.max(0, Number(formData.distance) || 0),
+      distanceKm,
       cargoKg: formData.hasCargo ? Math.max(0, Number(formData.weight) || 0) : 0,
       avgSpeedKmh: Math.max(0, Number(formData.avgSpeedKmh) || 0),
       temperatureCelsius: tempCelsius,
@@ -312,8 +238,6 @@ export function Trips() {
     };
     addTrip(newTrip);
     setTierOverride(false);
-    setDestino("");
-    resetAutoFill();
     setFormData({
       fleetVehicleId: "",
       vehicle: "",
@@ -353,7 +277,7 @@ export function Trips() {
             <div>
               <h3 className="text-base font-semibold text-slate-900 md:text-lg">Registrar Nova Viagem</h3>
               <p className="text-xs text-slate-600 md:text-sm">
-                Informe o destino para preencher distância, velocidade e período automaticamente,
+                Escolha origem e destino no mapa para calcular distância, velocidade e período,
                 ou preencha manualmente
               </p>
             </div>
@@ -361,7 +285,7 @@ export function Trips() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm text-slate-700">Tipo de Veículo</label>
                 <select
@@ -399,6 +323,14 @@ export function Trips() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            <MapaRota
+              vehicleType={formData.vehicleType || "Carro"}
+              onRotaCalculada={handleRotaCalculada}
+            />
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <Input
                 label="Distância (km)"
                 placeholder="1000"
@@ -408,56 +340,6 @@ export function Trips() {
                 required
                 min={0}
               />
-            </div>
-
-            <div className="space-y-3 rounded-xl border border-green-200/60 bg-green-50/60 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                  <Input
-                    label="Destino"
-                    placeholder="Ex: Maringá, PR"
-                    value={destino}
-                    list="destino-sugestoes"
-                    onChange={(e) => {
-                      setDestino(e.target.value);
-                      if (autoFillErro) resetAutoFill();
-                    }}
-                  />
-                  <datalist id="destino-sugestoes">
-                    {destinoSugestoesCompletas.map((cidade) => (
-                      <option key={cidade} value={cidade} />
-                    ))}
-                  </datalist>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleAutoPreencher}
-                  disabled={autoFillCarregando || !destino.trim()}
-                  className="shrink-0 gap-2 sm:mb-0"
-                >
-                  {autoFillCarregando ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Calculando...
-                    </>
-                  ) : (
-                    <>
-                      <Navigation className="h-4 w-4" />
-                      Detectar automaticamente
-                    </>
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-slate-600">
-                Digite parte do destino (ex.: "Maring") e selecione a sugestão. A origem usa sua
-                localização atual.
-              </p>
-              {autoFillErro && (
-                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  {autoFillErro}
-                </p>
-              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -634,7 +516,7 @@ export function Trips() {
               >
                 {warnHighWear && (
                   <p className="text-sm font-medium">
-                    Desgaste relativo alto neste cenário (~{lifeConsumedPreview.toFixed(1)}% de vida
+                    Desgaste relativo alto neste cenário (~{formatWearPercent(lifeConsumedPreview)} de vida
                     por pneu).
                   </p>
                 )}
@@ -653,7 +535,7 @@ export function Trips() {
                 <p className="text-sm text-slate-700">
                   Consumo estimado de vida útil por pneu (esta viagem):{" "}
                   <span className="font-semibold text-gray-900">
-                    {lifeConsumedPreview.toFixed(1)}%
+                    {formatWearPercent(lifeConsumedPreview)}
                   </span>
                   <span
                     className={`ml-2 inline-flex px-2 py-0.5 rounded-full text-xs ${
@@ -775,7 +657,7 @@ export function Trips() {
                     <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.avgSpeedKmh ?? "—"}</td>
                     <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.roadCondition ?? "—"}</td>
                     <td className="px-4 py-3 md:py-4 lg:px-6">
-                      <span className="text-sm font-medium text-slate-900">{trip.estimatedWear}%</span>
+                      <span className="text-sm font-medium text-slate-900">{formatWearPercent(trip.estimatedWear)}</span>
                       <span
                         className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs ${
                           trip.wearLevel === "Alto"
@@ -833,7 +715,7 @@ export function Trips() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Vida / viagem</p>
-                    <p className="text-sm font-medium text-slate-900">{trip.estimatedWear}% ({trip.wearLevel})</p>
+                    <p className="text-sm font-medium text-slate-900">{formatWearPercent(trip.estimatedWear)} ({trip.wearLevel})</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Vméd</p>

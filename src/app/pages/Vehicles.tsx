@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Car, Truck, Bike } from "lucide-react";
 import { useFleet } from "../contexts/FleetContext";
 import { FABRICANTES_PNEU_BR, MARCAS_VEICULO_BR } from "../data/brazilMarcas";
+import { getModelsForBrand } from "../data/tireSpecsCatalog";
+import { getTireLifespanKm } from "../../services/tireSpecsService";
 import type { TireQualityTier } from "../domain/wearModel";
 
 const muiRounded = {
@@ -30,7 +33,49 @@ export function Vehicles() {
     tireManufacturer: "",
     tireModel: "",
     tireQualityTier: "intermediario" as TireQualityTier,
+    estimatedLifeKm: "",
   });
+
+  const tireModelOptions = useMemo(
+    () => getModelsForBrand(formData.tireManufacturer),
+    [formData.tireManufacturer]
+  );
+
+  const handleFetchSpecs = async () => {
+    const model = formData.tireModel.trim();
+    if (!model) return;
+
+    try {
+      const { km_estimado, fonte, origem, tier } = await getTireLifespanKm(model, {
+        brand: formData.tireManufacturer.trim(),
+        tier: formData.tireQualityTier,
+      });
+
+      if (km_estimado != null) {
+        setFormData((f) => ({
+          ...f,
+          estimatedLifeKm: String(km_estimado),
+          ...(origem === "catalogo" && tier ? { tireQualityTier: tier } : {}),
+        }));
+        const detail = fonte
+          ? `${km_estimado.toLocaleString("pt-BR")} km (${fonte})`
+          : `${km_estimado.toLocaleString("pt-BR")} km`;
+        if (origem === "catalogo") {
+          toast.success(`Catálogo: ${detail}`);
+        } else {
+          toast.success(`Estimativa: ${detail}`);
+        }
+      } else {
+        toast.warning("Informe o modelo do pneu para consultar a vida útil.");
+      }
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "Não foi possível consultar as especificações. Preencha manualmente.";
+      toast.error(msg);
+    }
+  };
 
   const handleTypeChange = (type: string) => {
     if (type === "Carro") {
@@ -74,6 +119,7 @@ export function Vehicles() {
       tireManufacturer: "",
       tireModel: "",
       tireQualityTier: "intermediario",
+      estimatedLifeKm: "",
     });
   };
 
@@ -130,7 +176,7 @@ export function Vehicles() {
             <div>
               <h3 className="text-base font-semibold text-slate-900 md:text-lg">Cadastrar Novo Veículo</h3>
               <p className="text-xs text-slate-600 md:text-sm">
-                Pneus com mesmo modelo/fabricante são gerados para a página Pneus
+                Pneus gerados automaticamente — use o catálogo local para fabricante e modelo
               </p>
             </div>
           </div>
@@ -202,7 +248,7 @@ export function Vehicles() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
                 <label className="mb-2 block text-sm text-slate-700">Fabricante do pneu</label>
                 <Autocomplete<string, false, false, true>
@@ -216,24 +262,70 @@ export function Vehicles() {
                   value={formData.tireManufacturer === "" ? null : formData.tireManufacturer}
                   inputValue={formData.tireManufacturer}
                   onInputChange={(_, val) =>
-                    setFormData((f) => ({ ...f, tireManufacturer: val ?? "" }))}
+                    setFormData((f) => ({
+                      ...f,
+                      tireManufacturer: val ?? "",
+                      tireModel: "",
+                      estimatedLifeKm: "",
+                    }))}
                   onChange={(_, v) =>
                     setFormData((f) => ({
                       ...f,
                       tireManufacturer: typeof v === "string" ? v : v ?? "",
+                      tireModel: "",
+                      estimatedLifeKm: "",
                     }))}
                   renderInput={(params) => (
                     <TextField {...params} required placeholder="Ex: Michelin" size="small" />
                   )}
                 />
               </div>
-              <Input
-                label="Modelo do pneu"
-                placeholder="Ex: XZY Premium, Cinturato"
-                value={formData.tireModel}
-                onChange={(e) => setFormData({ ...formData, tireModel: e.target.value })}
-                required
-              />
+              <div>
+                <label className="mb-2 block text-sm text-slate-700">
+                  Modelo do pneu <span className="text-red-500">*</span>
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="min-w-0 flex-1">
+                    <Autocomplete<string, false, false, true>
+                      freeSolo
+                      disablePortal
+                      sx={muiRounded}
+                      options={tireModelOptions}
+                      filterOptions={(options, params) =>
+                        options.filter((o) =>
+                          o.toLowerCase().includes(params.inputValue.toLowerCase())
+                        )}
+                      inputValue={formData.tireModel}
+                      onInputChange={(_, val) =>
+                        setFormData((f) => ({ ...f, tireModel: val ?? "", estimatedLifeKm: "" }))}
+                      value={formData.tireModel === "" ? null : formData.tireModel}
+                      onChange={(_, v) =>
+                        setFormData((f) => ({
+                          ...f,
+                          tireModel: typeof v === "string" ? v : v ?? "",
+                          estimatedLifeKm: "",
+                        }))}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Ex.: Primacy 4"
+                          size="small"
+                          required
+                        />
+                      )}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="shrink-0 whitespace-nowrap text-sm sm:self-start"
+                    disabled={!formData.tireModel.trim()}
+                    onClick={() => void handleFetchSpecs()}
+                  >
+                    Buscar specs
+                  </Button>
+                </div>
+              </div>
               <div>
                 <label className="mb-2 block text-sm text-slate-700">
                   Linha dos pneus (modelo empírico)
@@ -244,6 +336,7 @@ export function Vehicles() {
                     setFormData((f) => ({
                       ...f,
                       tireQualityTier: e.target.value as TireQualityTier,
+                      estimatedLifeKm: "",
                     }))
                   }
                   className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
@@ -254,6 +347,21 @@ export function Vehicles() {
                   <option value="premium">Premium — desgaste relativo menor</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <Input
+                label="Vida útil estimada (km)"
+                placeholder="Ex.: 60000 — use Buscar specs"
+                type="number"
+                min="0"
+                value={formData.estimatedLifeKm}
+                onChange={(e) => setFormData({ ...formData, estimatedLifeKm: e.target.value })}
+              />
+              <p className="mt-1.5 text-xs text-slate-500">
+                Consulta catálogo local ou faixa do veículo: econômico ~40.000 km | intermediário
+                ~60.000 km | premium ~80.000 km
+              </p>
             </div>
 
             {formData.type === "Caminhão" ? (

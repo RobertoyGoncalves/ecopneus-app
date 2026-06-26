@@ -440,7 +440,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
           tires: prev.tires.map((t) => {
             if (t.vehicleId !== vehicleId) return t;
             const next =
-              Math.round(Math.max(0, t.health - lifeDeltaPercent) * 10) / 10;
+              Math.round(Math.max(0, t.health - lifeDeltaPercent) * 100) / 100;
             return { ...t, health: next };
           }),
         }));
@@ -452,7 +452,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         tires: prev.tires.map((t) => {
           if (t.vehicleId !== vehicleId) return t;
           const next =
-            Math.round(Math.max(0, t.health - lifeDeltaPercent) * 10) / 10;
+            Math.round(Math.max(0, t.health - lifeDeltaPercent) * 100) / 100;
           return { ...t, health: next };
         }),
       }));

@@ -111,6 +111,23 @@ export interface WearTripInput {
 }
 
 /** Retorna quantos pontos percentuais de vida útil consumir esta viagem (0–cap). */
+export function roundWearPercent(deltaPct: number): number {
+  return Math.round(clamp(deltaPct, 0, 40) * 10000) / 10000;
+}
+
+/** Formata desgaste com precisão adaptativa — nunca oculta valores positivos como 0%. */
+export function formatWearPercent(deltaPct: number): string {
+  const n = roundWearPercent(deltaPct);
+  if (n <= 0) return "0%";
+  if (n < 0.01) return `${trimTrailingDecimalZeros(n.toFixed(4))}%`;
+  if (n < 1) return `${trimTrailingDecimalZeros(n.toFixed(2))}%`;
+  return `${trimTrailingDecimalZeros(n.toFixed(1))}%`;
+}
+
+function trimTrailingDecimalZeros(value: string): string {
+  return value.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
 export function computeTripLifeConsumptionPercent(input: WearTripInput): number {
   const nominal = NOMINAL_LIFE_KM[input.vehicleType] ?? 45000;
   const D = Math.max(0, input.distanceKm);
@@ -129,7 +146,7 @@ export function computeTripLifeConsumptionPercent(input: WearTripInput): number 
   const aggravated = base * fTheta * fq * fs * ft * fm;
   const deltaPct = aggravated * 100;
   /** Teto por viagem para evitar valores extremos no protótipo. */
-  return Math.round(clamp(deltaPct, 0, 40) * 10) / 10;
+  return roundWearPercent(deltaPct);
 }
 
 export function wearSeverityLevel(deltaPct: number): "Baixo" | "Médio" | "Alto" {

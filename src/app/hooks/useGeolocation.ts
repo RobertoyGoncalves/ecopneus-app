@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { Coordenada } from "@/services/routeService";
+import type { Coordenada } from "@/types/geo";
 
 export type PosicaoAtual = Coordenada | null;
 
