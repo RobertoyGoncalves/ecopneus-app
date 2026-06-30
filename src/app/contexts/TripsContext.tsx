@@ -3,125 +3,95 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { Trip } from "../domain/trip";
+import * as tripsRemote from "../lib/tripsRemote";
+import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { useAuth } from "./AuthContext";
-
-const STORAGE_PREFIX = "ecopneu_trips_v1";
-
-function storageKey(userKey: string): string {
-  return `${STORAGE_PREFIX}:${userKey}`;
-}
-
-function wearLevelOk(x: unknown): x is Trip["wearLevel"] {
-  return x === "Baixo" || x === "Médio" || x === "Alto";
-}
-
-function normalizeTrip(raw: unknown): Trip | null {
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
-  const id = o.id != null ? String(o.id) : "";
-  if (!id) return null;
-  const vehicle = String(o.vehicle ?? "");
-  const vehicleType = String(o.vehicleType ?? "");
-  const distance = String(o.distance ?? "");
-  const weight = String(o.weight ?? "");
-  const value = String(o.value ?? "");
-  const type = String(o.type ?? "");
-  const hasCargo = Boolean(o.hasCargo);
-  const date = String(o.date ?? "");
-  const estimatedWear = Number(o.estimatedWear);
-  const wearLevel = wearLevelOk(o.wearLevel) ? o.wearLevel : "Baixo";
-  const tireCount = Math.max(0, Math.round(Number(o.tireCount) || 0));
-  const avgSpeedKmh =
-    o.avgSpeedKmh != null && Number.isFinite(Number(o.avgSpeedKmh))
-      ? Number(o.avgSpeedKmh)
-      : undefined;
-  const roadCondition = o.roadCondition as Trip["roadCondition"];
-  const dayPeriod = o.dayPeriod as Trip["dayPeriod"];
-  const recordedAtIso =
-    typeof o.recordedAtIso === "string" && o.recordedAtIso.length > 0 ? o.recordedAtIso : undefined;
-
-  return {
-    id,
-    vehicle,
-    vehicleType,
-    distance,
-    weight,
-    value,
-    type,
-    hasCargo,
-    date,
-    estimatedWear: Number.isFinite(estimatedWear) ? estimatedWear : 0,
-    wearLevel,
-    tireCount,
-    avgSpeedKmh,
-    roadCondition,
-    dayPeriod,
-    recordedAtIso,
-  };
-}
-
-function loadTrips(key: string): Trip[] {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeTrip).filter((t): t is Trip => t !== null);
-  } catch {
-    return [];
-  }
-}
 
 interface TripsContextType {
   trips: Trip[];
-  addTrip: (trip: Omit<Trip, "id"> & { id?: string }) => void;
+  tripsLoading: boolean;
+  addTrip: (trip: Omit<Trip, "id"> & { id?: string; vehicleId?: string }) => Promise<void>;
+  removeTrip: (tripId: string) => Promise<void>;
 }
 
 const TripsContext = createContext<TripsContextType | undefined>(undefined);
 
 export function TripsProvider({ children }: { children: ReactNode }) {
-  const { supabaseUserId, user, authReady } = useAuth();
-  const userKey = supabaseUserId ?? user?.email ?? "guest";
+  const { supabaseUserId, authReady } = useAuth();
+  const useRemote = isSupabaseConfigured() && !!supabaseUserId;
 
   const [trips, setTrips] = useState<Trip[]>([]);
-  const skipNextPersist = useRef(false);
+  const [tripsLoading, setTripsLoading] = useState(false);
 
   useEffect(() => {
     if (!authReady) return;
-    skipNextPersist.current = true;
-    setTrips(loadTrips(storageKey(userKey)));
-  }, [authReady, userKey]);
 
-  useEffect(() => {
-    if (!authReady) return;
-    if (skipNextPersist.current) {
-      skipNextPersist.current = false;
+    if (!useRemote || !supabaseUserId) {
+      setTrips([]);
+      setTripsLoading(false);
       return;
     }
-    try {
-      localStorage.setItem(storageKey(userKey), JSON.stringify(trips));
-    } catch {
-      /* ignore */
-    }
-  }, [trips, userKey, authReady]);
 
-  const addTrip = useCallback((trip: Omit<Trip, "id"> & { id?: string }) => {
-    const id =
-      trip.id && String(trip.id).length > 0
-        ? String(trip.id)
-        : typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : String(Date.now());
-    setTrips((prev) => [{ ...trip, id }, ...prev]);
-  }, []);
+    let cancelled = false;
+    setTripsLoading(true);
+
+    void tripsRemote
+      .fetchTrips(supabaseUserId)
+      .then((rows) => {
+        if (!cancelled) setTrips(rows);
+      })
+      .catch((err) => {
+        console.error("fetchTrips:", err);
+        if (!cancelled) setTrips([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTripsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [useRemote, authReady, supabaseUserId]);
+
+  const addTrip = useCallback(
+    async (trip: Omit<Trip, "id"> & { id?: string; vehicleId?: string }) => {
+      const { vehicleId, ...tripFields } = trip;
+
+      if (useRemote && supabaseUserId) {
+        const inserted = await tripsRemote.insertTrip(supabaseUserId, tripFields, vehicleId ?? null);
+        setTrips((prev) => [inserted, ...prev]);
+        return;
+      }
+
+      const id =
+        trip.id && String(trip.id).length > 0
+          ? String(trip.id)
+          : typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : String(Date.now());
+      setTrips((prev) => [{ ...tripFields, id }, ...prev]);
+    },
+    [useRemote, supabaseUserId]
+  );
+
+  const removeTrip = useCallback(
+    async (tripId: string) => {
+      if (useRemote && supabaseUserId) {
+        await tripsRemote.deleteTrip(supabaseUserId, tripId);
+      }
+      setTrips((prev) => prev.filter((t) => t.id !== tripId));
+    },
+    [useRemote, supabaseUserId]
+  );
 
   return (
-    <TripsContext.Provider value={{ trips, addTrip }}>{children}</TripsContext.Provider>
+    <TripsContext.Provider value={{ trips, tripsLoading, addTrip, removeTrip }}>
+      {children}
+    </TripsContext.Provider>
   );
 }
 

@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import { Card, CardContent } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
-import { CircleDot, Pencil, Plus, Trash2 } from "lucide-react";
+import { WearBar } from "../components/ui/WearBar";
+import { StatusBadge } from "../components/ui/StatusBadge";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { TireIcon } from "../components/ui/TireIcon";
 import { toast } from "sonner";
 import { formatVehicleLabel, useFleet } from "../contexts/FleetContext";
 import type { FleetTire } from "../contexts/FleetContext";
@@ -29,6 +32,12 @@ const emptyForm = {
   health: "",
   estimatedLifeKm: "",
 };
+
+function getHealthStatus(health: number): string {
+  if (health >= 80) return "Excelente";
+  if (health >= 50) return "Atenção";
+  return "Crítico";
+}
 
 export function Tires() {
   const { tires, vehicles, addManualTire, removeTire, updateTire, replaceTire, fleetLoading } = useFleet();
@@ -192,68 +201,55 @@ export function Tires() {
     setFlowMode("add");
   };
 
-  const getHealthColor = (health: number) => {
-    if (health >= 80) return "bg-green-100 text-green-700 border-green-200";
-    if (health >= 50) return "bg-yellow-100 text-yellow-700 border-yellow-200";
-    return "bg-red-100 text-red-700 border-red-200";
-  };
-
-  const getHealthLabel = (health: number) => {
-    if (health >= 80) return "Excelente";
-    if (health >= 50) return "Atenção";
-    return "Crítico";
-  };
+  const tireOptionLabel = (t: FleetTire) =>
+    `${t.axis} · ${t.brand} ${t.model} · ${t.health}%`;
 
   const filteredTires =
     filterType === "Todos" ? tires : tires.filter((t) => t.vehicleType === filterType);
 
-  const tireOptionLabel = (t: FleetTire) =>
-    `${t.axis} · ${t.brand} ${t.model} · ${t.health}%`;
+  const selectCls = "h-11 w-full rounded-xl border px-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-color)]";
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
-      <div className="mb-6 md:mb-8 flex flex-col gap-4">
-        <div>
-          <h1 className="mb-2 text-2xl font-semibold text-slate-900 md:text-3xl">Pneus</h1>
-          <p className="text-sm text-slate-600 md:text-base">
-            Veículos cadastrados geram pneus automaticamente. Aqui você inclui, troca ou ajusta dados.
-          </p>
-          {fleetLoading && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              Carregando frota da nuvem…
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="flex items-center gap-2 flex-1">
-            <span className="whitespace-nowrap text-xs text-slate-600 md:text-sm">Filtrar:</span>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 sm:flex-none md:px-4 md:text-sm"
-            >
-              <option value="Todos">Todos</option>
-              <option value="Caminhão">Caminhão</option>
-              <option value="Carro">Carro</option>
-              <option value="Moto">Moto</option>
-            </select>
-          </div>
-          <Button
-            variant="primary"
-            onClick={() => openAddForm()}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto"
+      {/* Toolbar */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        {fleetLoading && (
+          <div
+            className="rounded-lg border px-4 py-2.5 text-sm sm:mr-auto"
+            style={{ backgroundColor: "var(--bg-page)", borderColor: "var(--border-color)", color: "var(--text-secondary)" }}
           >
-            <Plus className="w-4 h-4 md:w-5 md:h-5" />
-            <span className="text-sm md:text-base">Adicionar ou trocar pneu</span>
-          </Button>
+            Carregando frota da nuvem…
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <span className="whitespace-nowrap text-xs" style={{ color: "var(--text-secondary)" }}>Filtrar:</span>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="h-10 rounded-xl border px-3 text-xs transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 sm:flex-none md:px-4 md:text-sm bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-color)]"
+          >
+            <option value="Todos">Todos</option>
+            <option value="Caminhão">Caminhão</option>
+            <option value="Carro">Carro</option>
+            <option value="Moto">Moto</option>
+          </select>
         </div>
+        <Button
+          variant="primary"
+          onClick={() => openAddForm()}
+          className="flex items-center justify-center gap-2 sm:ml-auto"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="text-sm">Adicionar ou trocar pneu</span>
+        </Button>
       </div>
 
+      {/* Form */}
       {showForm && (
-        <Card className="mb-6 md:mb-8">
+        <Card className="mb-6">
           <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-slate-900">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                 {flowMode === "edit"
                   ? "Editar pneu"
                   : flowMode === "replace"
@@ -263,7 +259,8 @@ export function Tires() {
               <button
                 type="button"
                 onClick={cancelForm}
-                className="text-sm text-slate-600 hover:text-slate-900"
+                className="text-sm hover:underline"
+                style={{ color: "var(--text-secondary)" }}
               >
                 Fechar
               </button>
@@ -271,13 +268,13 @@ export function Tires() {
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
               {flowMode !== "edit" && (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <label className="mb-2 block text-sm text-slate-700">Veículo</label>
+                      <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Veículo</label>
                       <select
                         value={formData.fleetVehicleId}
                         onChange={(e) => handleVehicleChange(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
+                        className={selectCls}
                         required
                       >
                         <option value="">Escolha marca, modelo e placa</option>
@@ -289,7 +286,7 @@ export function Tires() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm text-slate-700">Operação</label>
+                      <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Operação</label>
                       <select
                         value={flowMode === "replace" ? "replace" : "add"}
                         onChange={(e) => {
@@ -297,7 +294,7 @@ export function Tires() {
                           setFlowMode(m);
                           setFormData((f) => ({ ...f, replaceTargetId: "" }));
                         }}
-                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
+                        className={selectCls}
                         disabled={!formData.fleetVehicleId}
                       >
                         <option value="add">Adicionar pneu ao veículo</option>
@@ -308,7 +305,7 @@ export function Tires() {
 
                   {flowMode === "replace" && formData.fleetVehicleId && (
                     <div>
-                      <label className="mb-2 block text-sm text-slate-700">
+                      <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>
                         Qual pneu está sendo substituído?
                       </label>
                       <select
@@ -316,7 +313,7 @@ export function Tires() {
                         onChange={(e) =>
                           setFormData((f) => ({ ...f, replaceTargetId: e.target.value }))
                         }
-                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
+                        className={selectCls}
                         required={flowMode === "replace"}
                       >
                         <option value="">Selecione o pneu atual</option>
@@ -327,7 +324,7 @@ export function Tires() {
                         ))}
                       </select>
                       {tiresForSelectedVehicle.length === 0 && (
-                        <p className="text-xs text-amber-700 mt-1">
+                        <p className="mt-1 text-xs text-amber-700">
                           Não há pneus listados para este veículo.
                         </p>
                       )}
@@ -336,7 +333,7 @@ export function Tires() {
                 </>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Input
                   label="Eixo"
                   placeholder="Ex.: Dianteiro"
@@ -345,7 +342,7 @@ export function Tires() {
                   required
                 />
                 <div>
-                  <label className="mb-2 block text-sm text-slate-700">
+                  <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>
                     Modelo do pneu <span className="text-red-500">*</span>
                   </label>
                   <div className="flex flex-col gap-2 sm:flex-row">
@@ -390,7 +387,7 @@ export function Tires() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm text-slate-700">Fabricante</label>
+                  <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Fabricante</label>
                   <Autocomplete<string, false, false, true>
                     freeSolo
                     disablePortal
@@ -423,9 +420,6 @@ export function Tires() {
                   value={formData.estimatedLifeKm}
                   onChange={(e) => setFormData({ ...formData, estimatedLifeKm: e.target.value })}
                 />
-                <p className="mt-1.5 text-xs text-slate-500">
-                  Consulta catálogo local ou faixa do veículo: econômico ~40.000 km | intermediário ~60.000 km | premium ~80.000 km
-                </p>
               </div>
               <Input
                 label="Vida útil (%)"
@@ -455,66 +449,62 @@ export function Tires() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+      {/* Tire cards grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-5">
         {filteredTires.map((tire) => (
-          <Card key={tire.id} className="transition-all duration-200 hover:-translate-y-1 hover:shadow-xl">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-start justify-between mb-4 gap-2">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 md:h-14 md:w-14">
-                  <CircleDot className="h-6 w-6 text-slate-600 md:h-8 md:w-8" />
-                </div>
-                <span className={`px-2 md:px-3 py-1 rounded-full text-xs border ${getHealthColor(tire.health)}`}>
-                  {getHealthLabel(tire.health)}
-                </span>
+          <Card key={tire.id} className="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+            <CardContent className="p-5">
+              {/* Header: icon + status badge */}
+              <div className="mb-4 flex items-start justify-between gap-2">
+                <TireIcon
+                  size={40}
+                  className={
+                    tire.health >= 60
+                      ? "text-gray-400"
+                      : tire.health >= 20
+                        ? "text-yellow-500"
+                        : "text-red-500"
+                  }
+                />
+                <StatusBadge status={getHealthStatus(tire.health)} />
               </div>
 
-              <h3 className="mb-1 text-base font-semibold text-slate-900 md:text-lg">{tire.model}</h3>
-              <p className="mb-1 text-xs text-slate-600 md:text-sm">{tire.brand}</p>
-              <p className="mb-4 text-xs text-slate-500">
+              {/* Title */}
+              <h3 className="mb-0.5 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tire.model}</h3>
+              <p className="mb-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>{tire.brand}</p>
+              <p className="mb-4 text-xs" style={{ color: "var(--text-secondary)" }}>
                 {tire.vehicleType} · {tire.vehicle || "Sem veículo"}
               </p>
 
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-600 md:text-sm">Eixo</span>
-                  <span className="text-xs font-medium text-slate-900 md:text-sm">{tire.axis}</span>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-slate-600 md:text-sm">Vida útil</span>
-                    <span className="text-xs font-medium text-slate-900 md:text-sm">{tire.health}%</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        tire.health >= 80 ? "bg-green-500"
-                        : tire.health >= 50 ? "bg-yellow-500"
-                        : "bg-red-500"
-                      }`}
-                      style={{ width: `${tire.health}%` }}
-                    ></div>
-                  </div>
-                </div>
+              {/* Axis */}
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Eixo</span>
+                <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{tire.axis}</span>
               </div>
 
-              <div className="flex flex-col gap-2 border-t border-slate-100 pt-2 sm:flex-row">
+              {/* Wear bar */}
+              <div className="mb-4">
+                <WearBar wear={tire.health} />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 border-t pt-3" style={{ borderColor: "var(--border-color)" }}>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="flex-1 text-sm"
+                  className="flex-1 text-xs"
                   onClick={() => openEditForm(tire)}
                 >
-                  <Pencil className="w-4 h-4 mr-1 inline" />
+                  <Pencil className="mr-1 inline h-3.5 w-3.5" />
                   Editar
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="flex-1 text-sm text-red-700 hover:bg-red-50"
+                  className="flex-1 text-xs text-red-600 hover:bg-red-50"
                   onClick={() => handleRemove(tire)}
                 >
-                  <Trash2 className="w-4 h-4 mr-1 inline" />
+                  <Trash2 className="mr-1 inline h-3.5 w-3.5" />
                   Remover
                 </Button>
               </div>

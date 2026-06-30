@@ -6,6 +6,12 @@ export type MapaRotaResultado = {
   periodoValor: DayPeriod;
   temperaturaC: number;
   duracaoMin: number;
+  origem: string;
+  destino: string;
+  latOrigem: number;
+  lonOrigem: number;
+  latDestino: number;
+  lonDestino: number;
 };
 
 export type MapaRotaProps = {

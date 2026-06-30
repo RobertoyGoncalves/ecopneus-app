@@ -9,6 +9,7 @@ import { Register } from "./pages/Register";
 import { Dashboard } from "./pages/Dashboard";
 import { Vehicles } from "./pages/Vehicles";
 import { Tires } from "./pages/Tires";
+import { Settings } from "./pages/Settings";
 
 const Trips = lazy(() =>
   import("./pages/Trips")
@@ -54,6 +55,7 @@ export function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="vehicles" element={<Vehicles />} />
         <Route path="tires" element={<Tires />} />
+        <Route path="settings" element={<Settings />} />
         <Route
           path="trips"
           element={

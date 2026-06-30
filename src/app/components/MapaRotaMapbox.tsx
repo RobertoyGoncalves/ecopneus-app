@@ -181,9 +181,10 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
         source: ROUTE_SOURCE_ID,
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": "#3b82f6",
-          "line-width": 5,
-          "line-opacity": 0.8,
+          "line-color": "#16a34a",
+          "line-width": 4,
+          "line-gap-width": 2,
+          "line-opacity": 1,
         },
       });
     }
@@ -257,6 +258,9 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
   useEffect(() => {
     if (!mapContainerRef.current || !origemGeocoderRef.current || !destinoGeocoderRef.current) return;
 
+    // Guard: prevent double-mount (React StrictMode / remount)
+    if (geocoderOrigemRef.current) return;
+
     let cancelled = false;
 
     void (async () => {
@@ -278,7 +282,7 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
 
         const map = new mapboxgl.Map({
           container: mapContainerRef.current!,
-          style: "mapbox://styles/mapbox/navigation-day-v1",
+          style: "mapbox://styles/mapbox/streets-v12",
           center: BRASIL_CENTER,
           zoom: DEFAULT_ZOOM,
         });
@@ -302,6 +306,8 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
           ...geocoderOpts,
           placeholder: "Destino",
         });
+
+        if (cancelled) return;
 
         geocoderOrigem.addTo(origemGeocoderRef.current!);
         geocoderDestino.addTo(destinoGeocoderRef.current!);
@@ -383,8 +389,14 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
       markerDestinoRef.current?.remove();
       markerOrigemRef.current = null;
       markerDestinoRef.current = null;
+      // Remove geocoder instances from DOM before nullifying
+      geocoderOrigemRef.current?.remove?.();
+      geocoderDestinoRef.current?.remove?.();
       geocoderOrigemRef.current = null;
       geocoderDestinoRef.current = null;
+      // Clear container divs so a remount starts clean
+      if (origemGeocoderRef.current) origemGeocoderRef.current.innerHTML = "";
+      if (destinoGeocoderRef.current) destinoGeocoderRef.current.innerHTML = "";
       mapRef.current?.remove();
       mapRef.current = null;
       libsRef.current = null;
@@ -451,6 +463,12 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
         periodoValor: periodo,
         temperaturaC: temperatura,
         duracaoMin,
+        origem: origem.label,
+        destino: destino.label,
+        latOrigem: origem.coord.lat,
+        lonOrigem: origem.coord.lon,
+        latDestino: destino.coord.lat,
+        lonDestino: destino.coord.lon,
       });
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao calcular rota.");
@@ -461,63 +479,96 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-        <div className="flex items-stretch gap-2">
-          <div className="flex flex-1 flex-col gap-2">
-            <div className="relative mapbox-geocoder-origem" ref={origemGeocoderRef} />
-            <div className="relative mapbox-geocoder-destino" ref={destinoGeocoderRef} />
+      {/* Geocoder fields */}
+      <div className="flex flex-col gap-2 mb-3">
+        {/* Origem */}
+        <div
+          className="relative w-full rounded-xl border bg-[var(--bg-card)]"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          <div ref={origemGeocoderRef} className="w-full" />
+          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+            <MapPin style={{ width: 16, height: 16, color: "#16a34a" }} />
           </div>
+        </div>
 
+        {/* Swap button */}
+        <div className="flex justify-center">
           <button
             type="button"
             onClick={trocarOrigemDestino}
-            className="flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100"
+            className="flex h-7 w-7 items-center justify-center rounded-full border transition-colors hover:opacity-80"
+            style={{
+              backgroundColor: "var(--bg-page)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-secondary)",
+            }}
             title="Trocar origem e destino"
           >
-            <ArrowUpDown className="h-4 w-4" />
+            <ArrowUpDown className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        {origem && destino && (
-          <div className="mt-2">
-            <Button
-              type="button"
-              variant="primary"
-              className="w-full gap-2"
-              disabled={calculando || carregandoRota}
-              onClick={() => void handleCalcularRota()}
-            >
-              {calculando ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Calculando rota...
-                </>
-              ) : (
-                "Calcular rota"
-              )}
-            </Button>
+        {/* Destino */}
+        <div
+          className="relative w-full rounded-xl border bg-[var(--bg-card)]"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          <div ref={destinoGeocoderRef} className="w-full" />
+          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+            <MapPin style={{ width: 16, height: 16, color: "#ef4444" }} />
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="relative min-h-[500px] h-[min(420px,60vh)] w-full overflow-hidden rounded-xl border border-slate-200">
+      {/* Calculate route button */}
+      {origem && destino && (
+        <Button
+          type="button"
+          variant="primary"
+          className="w-full gap-2"
+          disabled={calculando || carregandoRota}
+          onClick={() => void handleCalcularRota()}
+        >
+          {calculando ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Calculando rota...
+            </>
+          ) : (
+            "Calcular rota"
+          )}
+        </Button>
+      )}
+
+      {/* Map */}
+      <div
+        className="relative w-full overflow-hidden rounded-xl border"
+        style={{ height: 320, borderColor: "var(--border-color)" }}
+      >
         <div ref={mapContainerRef} className="h-full w-full" />
 
         {(!libsReady || !mapPronto) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-50 text-sm text-slate-500">
+          <div
+            className="absolute inset-0 flex items-center justify-center text-sm"
+            style={{ backgroundColor: "var(--bg-page)", color: "var(--text-secondary)" }}
+          >
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Carregando mapa...
           </div>
         )}
 
         {carregandoRota && (
-          <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-1.5 text-xs text-slate-600 shadow">
+          <div
+            className="pointer-events-none absolute bottom-3 left-3 rounded-lg px-3 py-1.5 text-xs shadow"
+            style={{ backgroundColor: "var(--bg-card)", color: "var(--text-secondary)" }}
+          >
             Traçando rota...
           </div>
         )}
       </div>
 
-      <p className="flex items-center gap-1 text-xs text-slate-600">
+      <p className="flex items-center gap-1 text-xs" style={{ color: "var(--text-secondary)" }}>
         <MapPin className="h-3.5 w-3.5 shrink-0 text-red-500" />
         Clique no mapa ou busque por nome. Origem e destino continuam editáveis após calcular.
       </p>

@@ -21,4 +21,12 @@ export interface Trip {
   dayPeriod?: DayPeriod;
   /** ISO 8601 — usado para gráficos mensais (viagens antigas podem não ter). */
   recordedAtIso?: string;
+  origem: string;
+  destino: string;
+  latOrigem?: number;
+  lonOrigem?: number;
+  latDestino?: number;
+  lonDestino?: number;
+  /** UUID do veículo na nuvem (quando persistido no Supabase). */
+  vehicleId?: string;
 }

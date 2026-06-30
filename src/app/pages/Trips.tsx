@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
+import { StatusBadge } from "../components/ui/StatusBadge";
 import { MapPin } from "lucide-react";
 import { formatVehicleLabel, useFleet } from "../contexts/FleetContext";
 import { useTrips } from "../contexts/TripsContext";
@@ -34,9 +35,7 @@ export function Trips() {
   const { vehicles, tires, applyTripWearToVehicle } = useFleet();
   const { trips, addTrip } = useTrips();
 
-  /** Se falso, usa a linha cadastrada no veículo; se verdadeiro, usa o select manual. */
   const [tierOverride, setTierOverride] = useState(false);
-
   const [filterType, setFilterType] = useState("Todos");
 
   const [formData, setFormData] = useState({
@@ -53,6 +52,12 @@ export function Trips() {
     dayPeriod: "manha" as DayPeriod,
     temperatureC: null as number | null,
     tireTier: "intermediario" as TireQualityTier,
+    origem: "",
+    destino: "",
+    latOrigem: undefined as number | undefined,
+    lonOrigem: undefined as number | undefined,
+    latDestino: undefined as number | undefined,
+    lonDestino: undefined as number | undefined,
   });
 
   const vehiclesForType = useMemo(
@@ -191,6 +196,12 @@ export function Trips() {
       avgSpeedKmh: String(resultado.velocidadeMediaKmh),
       dayPeriod: resultado.periodoValor,
       temperatureC: resultado.temperaturaC,
+      origem: resultado.origem,
+      destino: resultado.destino,
+      latOrigem: resultado.latOrigem,
+      lonOrigem: resultado.lonOrigem,
+      latDestino: resultado.latDestino,
+      lonDestino: resultado.lonDestino,
     }));
   };
 
@@ -235,8 +246,15 @@ export function Trips() {
       avgSpeedKmh: Number(formData.avgSpeedKmh) || undefined,
       roadCondition: formData.roadCondition,
       dayPeriod: formData.dayPeriod,
+      origem: formData.origem,
+      destino: formData.destino,
+      latOrigem: formData.latOrigem,
+      lonOrigem: formData.lonOrigem,
+      latDestino: formData.latDestino,
+      lonDestino: formData.lonDestino,
+      vehicleId: selectedFleetVehicle.id,
     };
-    addTrip(newTrip);
+    await addTrip(newTrip);
     setTierOverride(false);
     setFormData({
       fleetVehicleId: "",
@@ -252,6 +270,12 @@ export function Trips() {
       dayPeriod: "manha",
       temperatureC: null,
       tireTier: "intermediario",
+      origem: "",
+      destino: "",
+      latOrigem: undefined,
+      lonOrigem: undefined,
+      latDestino: undefined,
+      lonDestino: undefined,
     });
   };
 
@@ -259,15 +283,11 @@ export function Trips() {
     ? trips
     : trips.filter((t) => t.vehicleType === filterType);
 
+  const selectCls = "h-11 w-full rounded-xl border px-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-color)]";
+  const selectCls11 = selectCls + " disabled:opacity-60 disabled:cursor-not-allowed";
+
   return (
     <div className="p-4 md:p-6 lg:p-8">
-      <div className="mb-6 md:mb-8">
-        <h1 className="mb-2 text-2xl font-semibold text-slate-900 md:text-3xl">Viagens</h1>
-        <p className="text-sm text-slate-600 md:text-base">
-          Registre viagens e veja o impacto estimado na vida útil dos pneus
-        </p>
-      </div>
-
       <Card className="mb-6 md:mb-8">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -275,8 +295,8 @@ export function Trips() {
               <MapPin className="h-5 w-5 text-green-700" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900 md:text-lg">Registrar Nova Viagem</h3>
-              <p className="text-xs text-slate-600 md:text-sm">
+              <h3 className="text-base font-semibold md:text-lg" style={{ color: "var(--text-primary)" }}>Registrar Nova Viagem</h3>
+              <p className="text-xs md:text-sm" style={{ color: "var(--text-secondary)" }}>
                 Escolha origem e destino no mapa para calcular distância, velocidade e período,
                 ou preencha manualmente
               </p>
@@ -287,11 +307,11 @@ export function Trips() {
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm text-slate-700">Tipo de Veículo</label>
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Tipo de Veículo</label>
                 <select
                   value={formData.vehicleType}
                   onChange={(e) => handleVehicleTypeChange(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
+                  className={selectCls}
                   required
                 >
                   <option value="">Selecione o tipo</option>
@@ -301,12 +321,12 @@ export function Trips() {
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-sm text-slate-700">Veículo cadastrado</label>
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Veículo cadastrado</label>
                 <select
                   value={formData.fleetVehicleId}
                   disabled={!formData.vehicleType || vehiclesForType.length === 0}
                   onChange={(e) => handleFleetVehicleChange(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 disabled:bg-slate-100 disabled:text-slate-500"
+                  className={selectCls11}
                   required
                 >
                   <option value="">
@@ -353,7 +373,7 @@ export function Trips() {
                 required
               />
               <div>
-                <label className="mb-2 block text-sm text-slate-700">Condição da estrada</label>
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Condição da estrada</label>
                 <select
                   value={formData.roadCondition}
                   onChange={(e) =>
@@ -362,7 +382,7 @@ export function Trips() {
                       roadCondition: e.target.value as RoadCondition,
                     }))
                   }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
+                  className={selectCls}
                 >
                   <option value="Boa">Boa</option>
                   <option value="Média">Média</option>
@@ -370,7 +390,7 @@ export function Trips() {
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-sm text-slate-700">Período do dia</label>
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Período do dia</label>
                 <select
                   value={formData.dayPeriod}
                   onChange={(e) =>
@@ -380,7 +400,7 @@ export function Trips() {
                       temperatureC: null,
                     }))
                   }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
+                  className={selectCls}
                 >
                   {periodoOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -390,9 +410,9 @@ export function Trips() {
                 </select>
               </div>
               <div className="md:col-span-2 lg:col-span-2">
-                <label className="mb-2 block text-sm text-slate-700">Linha dos pneus</label>
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Linha dos pneus</label>
                 {selectedFleetVehicle && (
-                  <label className="flex items-center gap-2 mb-2 text-sm text-gray-600 cursor-pointer">
+                  <label className="flex items-center gap-2 mb-2 text-sm cursor-pointer" style={{ color: "var(--text-secondary)" }}>
                     <input
                       type="checkbox"
                       checked={tierOverride}
@@ -411,16 +431,16 @@ export function Trips() {
                       tireTier: e.target.value as TireQualityTier,
                     }))
                   }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 disabled:bg-slate-100 disabled:text-slate-600"
+                  className={selectCls11}
                 >
                   <option value="economico">{tierLabels.economico}</option>
                   <option value="intermediario">{tierLabels.intermediario}</option>
                   <option value="premium">{tierLabels.premium}</option>
                 </select>
                 {selectedFleetVehicle && !tierOverride && (
-                  <p className="text-xs text-gray-500 mt-1.5">
+                  <p className="text-xs mt-1.5" style={{ color: "var(--text-secondary)" }}>
                     Usando a linha do cadastro do veículo:{" "}
-                    <span className="font-medium text-gray-700">
+                    <span className="font-medium" style={{ color: "var(--text-primary)" }}>
                       {tierLabels[selectedFleetVehicle.tireQualityTier]}
                     </span>
                   </p>
@@ -429,14 +449,14 @@ export function Trips() {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-700">Tem carga?</span>
+              <span className="text-sm" style={{ color: "var(--text-primary)" }}>Tem carga?</span>
               <button
                 type="button"
                 onClick={() => handleHasCargoChange(true)}
                 className={`px-4 py-2 rounded-xl border text-sm transition-all ${
                   formData.hasCargo
                     ? "bg-green-100 border-green-200 text-green-800"
-                    : "bg-white border-slate-200 text-slate-700"
+                    : "border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-secondary)]"
                 }`}
               >
                 Sim
@@ -447,7 +467,7 @@ export function Trips() {
                 className={`px-4 py-2 rounded-xl border text-sm transition-all ${
                   !formData.hasCargo
                     ? "bg-green-100 border-green-200 text-green-800"
-                    : "bg-white border-slate-200 text-slate-700"
+                    : "border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-secondary)]"
                 }`}
               >
                 Não
@@ -484,21 +504,21 @@ export function Trips() {
             )}
 
             {selectedFleetVehicle?.type === "Caminhão" && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 Pneus cadastrados neste veículo:{" "}
-                <span className="font-semibold text-gray-900">{selectedFleetVehicle.tireCount}</span>
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{selectedFleetVehicle.tireCount}</span>
               </p>
             )}
 
             {selectedFleetVehicle && curbDisplay !== null && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 Peso do veículo (referência por tipo):{" "}
-                <span className="font-medium text-gray-700">{curbDisplay} kg</span>
+                <span className="font-medium" style={{ color: "var(--text-primary)" }}>{curbDisplay} kg</span>
                 {nominalKmRef !== null && (
                   <>
                     {" "}
                     · Referência de vida útil:{" "}
-                    <span className="font-medium text-gray-700">
+                    <span className="font-medium" style={{ color: "var(--text-primary)" }}>
                       {(nominalKmRef / 1000).toFixed(0)} mil km
                     </span>
                   </>
@@ -530,11 +550,14 @@ export function Trips() {
             )}
 
             {formData.vehicleType && selectedFleetVehicle && (
-              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                <p className="text-sm font-medium text-slate-900">Antes de salvar — pré-visualização</p>
-                <p className="text-sm text-slate-700">
+              <div
+                className="space-y-2 rounded-xl border p-4"
+                style={{ backgroundColor: "var(--bg-page)", borderColor: "var(--border-color)" }}
+              >
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Antes de salvar — pré-visualização</p>
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                   Consumo estimado de vida útil por pneu (esta viagem):{" "}
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
                     {formatWearPercent(lifeConsumedPreview)}
                   </span>
                   <span
@@ -549,13 +572,13 @@ export function Trips() {
                     {wearLevelPreview}
                   </span>
                 </p>
-                <p className="text-sm text-slate-700">
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                   Temperatura{" "}
                   {formData.temperatureC !== null ? "atual" : "aproximada"}:{" "}
-                  <span className="font-medium">{Math.round(tempCelsius)} °C</span>
+                  <span className="font-medium" style={{ color: "var(--text-primary)" }}>{Math.round(tempCelsius)} °C</span>
                 </p>
-                <p className="text-sm text-slate-700">
-                  Pneus no veículo: <span className="font-semibold">{tireCount}</span> — o mesmo
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                  Pneus no veículo: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{tireCount}</span> — o mesmo
                   percentual vale para todos
                 </p>
               </div>
@@ -570,17 +593,17 @@ export function Trips() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h3 className="text-base font-semibold text-slate-900 md:text-lg">Viagens registradas</h3>
-              <p className="text-xs text-slate-600 md:text-sm">{filteredTrips.length} viagens encontrada(s)</p>
+              <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Viagens registradas</h3>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>{filteredTrips.length} viagem(ns) encontrada(s)</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-600 md:text-sm">Filtrar:</span>
+              <span className="text-xs md:text-sm" style={{ color: "var(--text-secondary)" }}>Filtrar:</span>
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 md:px-4 md:text-sm"
+                className="h-10 rounded-xl border px-3 text-xs transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 md:px-4 md:text-sm bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-color)]"
               >
                 <option value="Todos">Todos</option>
                 <option value="Caminhão">Caminhão</option>
@@ -591,95 +614,56 @@ export function Trips() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="hidden lg:block overflow-x-auto">
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/60">
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Veículo
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Tipo
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Distância (km)
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Carga?
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Peso carga (kg)
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    V méd (km/h)
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Estrada
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Vida / viagem %
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Pneus
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Valor
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Uso
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Data
-                  </th>
+                <tr
+                  className="border-b"
+                  style={{ backgroundColor: "var(--bg-page)", borderColor: "var(--border-color)" }}
+                >
+                  {["Veículo", "Tipo", "Distância (km)", "Carga?", "Peso carga (kg)", "V méd (km/h)", "Estrada", "Vida / viagem", "Pneus", "Valor", "Uso", "Data"].map((h) => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {filteredTrips.map((trip, index) => (
                   <tr
                     key={trip.id}
-                    className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${
-                      index % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                    }`}
+                    className="transition-colors last:border-0 hover:bg-[var(--bg-page)]"
+                    style={
+                      index < filteredTrips.length - 1
+                        ? { borderBottom: "1px solid var(--border-color)" }
+                        : undefined
+                    }
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900 md:py-4 lg:px-6">
-                      {trip.vehicle}
+                    <td className="px-5 py-3.5 text-sm font-medium" style={{ color: "var(--text-primary)" }}>{trip.vehicle}</td>
+                    <td className="px-5 py-3.5">
+                      <StatusBadge status={trip.vehicleType} label={trip.vehicleType} />
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4">
-                      <span className="inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
-                        {trip.vehicleType}
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{trip.distance}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{trip.hasCargo ? "Sim" : "Não"}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{Number(trip.weight).toLocaleString()}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{trip.avgSpeedKmh ?? "—"}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{trip.roadCondition ?? "—"}</td>
+                    <td className="px-5 py-3.5">
+                      <span className="mr-1.5 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                        {formatWearPercent(trip.estimatedWear)}
                       </span>
+                      <StatusBadge status={trip.wearLevel ?? "Baixo"} />
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.distance}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.hasCargo ? "Sim" : "Não"}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">
-                      {Number(trip.weight).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.avgSpeedKmh ?? "—"}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.roadCondition ?? "—"}</td>
-                    <td className="px-4 py-3 md:py-4 lg:px-6">
-                      <span className="text-sm font-medium text-slate-900">{formatWearPercent(trip.estimatedWear)}</span>
-                      <span
-                        className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs ${
-                          trip.wearLevel === "Alto"
-                            ? "bg-red-100 text-red-700"
-                            : trip.wearLevel === "Médio"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {trip.wearLevel}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.tireCount}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-green-600 md:py-4 lg:px-6">
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{trip.tireCount}</td>
+                    <td className="px-5 py-3.5 text-sm font-medium text-green-600">
                       R$ {Number(trip.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4">
-                      <span className="inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs bg-purple-100 text-purple-700">
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700">
                         {trip.type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{trip.date}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{trip.date}</td>
                   </tr>
                 ))}
               </tbody>
@@ -688,55 +672,62 @@ export function Trips() {
 
           <div className="space-y-3 p-4 lg:hidden">
             {filteredTrips.map((trip) => (
-              <div key={trip.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+              <div
+                key={trip.id}
+                className="space-y-3 rounded-xl border p-4"
+                style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h4 className="text-sm font-medium text-slate-900 md:text-base">{trip.vehicle}</h4>
+                    <h4 className="text-sm font-medium md:text-base" style={{ color: "var(--text-primary)" }}>{trip.vehicle}</h4>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
                         {trip.vehicleType}
                       </span>
-                      <span className="text-xs text-slate-500">{trip.date}</span>
+                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{trip.date}</span>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-2">
+                <div
+                  className="grid grid-cols-2 gap-3 border-t pt-2"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
                   <div>
-                    <p className="text-xs text-slate-500">Distância</p>
-                    <p className="text-sm font-medium text-slate-900">{trip.distance} km</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Distância</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{trip.distance} km</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Tem carga?</p>
-                    <p className="text-sm font-medium text-slate-900">{trip.hasCargo ? "Sim" : "Não"}</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Tem carga?</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{trip.hasCargo ? "Sim" : "Não"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Peso carga</p>
-                    <p className="text-sm font-medium text-slate-900">{Number(trip.weight).toLocaleString()} kg</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Peso carga</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{Number(trip.weight).toLocaleString()} kg</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Vida / viagem</p>
-                    <p className="text-sm font-medium text-slate-900">{formatWearPercent(trip.estimatedWear)} ({trip.wearLevel})</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Vida / viagem</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{formatWearPercent(trip.estimatedWear)} ({trip.wearLevel})</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Vméd</p>
-                    <p className="text-sm font-medium text-slate-900">{trip.avgSpeedKmh ?? "—"} km/h</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Vméd</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{trip.avgSpeedKmh ?? "—"} km/h</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Estrada</p>
-                    <p className="text-sm font-medium text-slate-900">{trip.roadCondition ?? "—"}</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Estrada</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{trip.roadCondition ?? "—"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Pneus afetados</p>
-                    <p className="text-sm font-medium text-slate-900">{trip.tireCount}</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Pneus afetados</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{trip.tireCount}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Valor</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Valor</p>
                     <p className="text-sm font-medium text-green-600">
                       R$ {Number(trip.value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
-                <div className="border-t border-slate-100 pt-1">
+                <div className="border-t pt-1" style={{ borderColor: "var(--border-color)" }}>
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-700">
                     {trip.type}
                   </span>

@@ -7,8 +7,12 @@ import { Button } from "../components/Button";
 import { Input } from "../components/Input";
 import { Car, Truck, Bike } from "lucide-react";
 import { useFleet } from "../contexts/FleetContext";
-import { FABRICANTES_PNEU_BR, MARCAS_VEICULO_BR } from "../data/brazilMarcas";
-import { getModelsForBrand } from "../data/tireSpecsCatalog";
+import { MARCAS_VEICULO_BR } from "../data/brazilMarcas";
+import {
+  getBrandsForVehicleType,
+  getModelsGroupedByTier,
+  findCatalogEntry,
+} from "../data/tireSpecsCatalog";
 import { getTireLifespanKm } from "../../services/tireSpecsService";
 import type { TireQualityTier } from "../domain/wearModel";
 
@@ -36,9 +40,20 @@ export function Vehicles() {
     estimatedLifeKm: "",
   });
 
-  const tireModelOptions = useMemo(
-    () => getModelsForBrand(formData.tireManufacturer),
-    [formData.tireManufacturer]
+  const fabricantesOptions = useMemo(
+    () =>
+      formData.type
+        ? getBrandsForVehicleType(formData.type)
+        : [],
+    [formData.type]
+  );
+
+  const modelosAgrupados = useMemo(
+    () =>
+      formData.type
+        ? getModelsGroupedByTier(formData.type, formData.tireManufacturer)
+        : null,
+    [formData.type, formData.tireManufacturer]
   );
 
   const handleFetchSpecs = async () => {
@@ -78,15 +93,16 @@ export function Vehicles() {
   };
 
   const handleTypeChange = (type: string) => {
+    const reset = { tireManufacturer: "", tireModel: "", estimatedLifeKm: "" };
     if (type === "Carro") {
-      setFormData((f) => ({ ...f, type, tireCount: "4" }));
+      setFormData((f) => ({ ...f, type, tireCount: "4", ...reset }));
       return;
     }
     if (type === "Moto") {
-      setFormData((f) => ({ ...f, type, tireCount: "2" }));
+      setFormData((f) => ({ ...f, type, tireCount: "2", ...reset }));
       return;
     }
-    setFormData((f) => ({ ...f, type, tireCount: "" }));
+    setFormData((f) => ({ ...f, type, tireCount: "", ...reset }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,19 +165,19 @@ export function Vehicles() {
       case "Moto":
         return "bg-orange-100 text-orange-700";
       default:
-        return "bg-gray-100 text-gray-700";
+        return "bg-[var(--bg-page)] text-[var(--text-secondary)]";
     }
   };
 
+  const selectCls = "h-11 w-full rounded-xl border px-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)]";
+
   return (
     <div className="p-4 md:p-6 lg:p-8">
-      <div className="mb-6 md:mb-8">
-        <h1 className="mb-2 text-2xl font-semibold text-slate-900 md:text-3xl">Veículos</h1>
-        <p className="text-sm text-slate-600 md:text-base">Gerencie todos os seus veículos em um só lugar</p>
-      </div>
-
       {fleetLoading && (
-        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <div
+          className="mb-5 rounded-xl border px-4 py-3 text-sm"
+          style={{ backgroundColor: "var(--bg-page)", borderColor: "var(--border-color)", color: "var(--text-secondary)" }}
+        >
           Carregando frota da nuvem…
         </div>
       )}
@@ -174,8 +190,8 @@ export function Vehicles() {
               <Car className="h-5 w-5 text-green-700" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900 md:text-lg">Cadastrar Novo Veículo</h3>
-              <p className="text-xs text-slate-600 md:text-sm">
+              <h3 className="text-base font-semibold md:text-lg" style={{ color: "var(--text-primary)" }}>Cadastrar Novo Veículo</h3>
+              <p className="text-xs md:text-sm" style={{ color: "var(--text-secondary)" }}>
                 Pneus gerados automaticamente — use o catálogo local para fabricante e modelo
               </p>
             </div>
@@ -185,11 +201,11 @@ export function Vehicles() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="mb-2 block text-sm text-slate-700">Tipo de Veículo</label>
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Tipo de Veículo</label>
                 <select
                   value={formData.type}
                   onChange={(e) => handleTypeChange(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
+                  className={selectCls}
                   required
                 >
                   <option value="">Selecione o tipo</option>
@@ -199,7 +215,7 @@ export function Vehicles() {
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-sm text-slate-700">Marca do veículo</label>
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Marca do veículo</label>
                 <Autocomplete<string, false, false, true>
                   freeSolo
                   disablePortal
@@ -219,7 +235,6 @@ export function Vehicles() {
                     <TextField {...params} required placeholder="Digite ou escolha" size="small" />
                   )}
                 />
-                <p className="mt-1 text-xs text-slate-500">Lista de marcas populares no Brasil</p>
               </div>
               <Input
                 label="Modelo"
@@ -250,12 +265,12 @@ export function Vehicles() {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <label className="mb-2 block text-sm text-slate-700">Fabricante do pneu</label>
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>Fabricante do pneu</label>
                 <Autocomplete<string, false, false, true>
                   freeSolo
                   disablePortal
                   sx={muiRounded}
-                  options={FABRICANTES_PNEU_BR.slice()}
+                  options={fabricantesOptions}
                   filterOptions={(options, params) =>
                     options.filter((o) =>
                       o.toLowerCase().includes(params.inputValue.toLowerCase()))}
@@ -276,44 +291,74 @@ export function Vehicles() {
                       estimatedLifeKm: "",
                     }))}
                   renderInput={(params) => (
-                    <TextField {...params} required placeholder="Ex: Michelin" size="small" />
+                    <TextField
+                      {...params}
+                      placeholder={
+                        formData.type
+                          ? "Filtrado por tipo de veículo"
+                          : "Selecione o tipo de veículo primeiro"
+                      }
+                      size="small"
+                      required
+                    />
                   )}
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm text-slate-700">
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>
                   Modelo do pneu <span className="text-red-500">*</span>
                 </label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <div className="min-w-0 flex-1">
-                    <Autocomplete<string, false, false, true>
-                      freeSolo
-                      disablePortal
-                      sx={muiRounded}
-                      options={tireModelOptions}
-                      filterOptions={(options, params) =>
-                        options.filter((o) =>
-                          o.toLowerCase().includes(params.inputValue.toLowerCase())
-                        )}
-                      inputValue={formData.tireModel}
-                      onInputChange={(_, val) =>
-                        setFormData((f) => ({ ...f, tireModel: val ?? "", estimatedLifeKm: "" }))}
-                      value={formData.tireModel === "" ? null : formData.tireModel}
-                      onChange={(_, v) =>
+                    <select
+                      value={formData.tireModel}
+                      disabled={!formData.type}
+                      required
+                      className={`${selectCls} disabled:cursor-not-allowed disabled:opacity-50`}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const entry = val
+                          ? findCatalogEntry(formData.tireManufacturer, val)
+                          : null;
                         setFormData((f) => ({
                           ...f,
-                          tireModel: typeof v === "string" ? v : v ?? "",
+                          tireModel: val,
                           estimatedLifeKm: "",
-                        }))}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Ex.: Primacy 4"
-                          size="small"
-                          required
-                        />
+                          ...(entry ? { tireQualityTier: entry.tier } : {}),
+                        }));
+                      }}
+                    >
+                      <option value="">
+                        {!formData.type
+                          ? "Selecione o tipo de veículo primeiro"
+                          : "Escolha um modelo"}
+                      </option>
+                      {modelosAgrupados && (
+                        <>
+                          {modelosAgrupados.economico.length > 0 && (
+                            <optgroup label="Econômico">
+                              {modelosAgrupados.economico.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {modelosAgrupados.intermediario.length > 0 && (
+                            <optgroup label="Intermediário">
+                              {modelosAgrupados.intermediario.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {modelosAgrupados.premium.length > 0 && (
+                            <optgroup label="Premium">
+                              {modelosAgrupados.premium.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
                       )}
-                    />
+                    </select>
                   </div>
                   <Button
                     type="button"
@@ -327,7 +372,7 @@ export function Vehicles() {
                 </div>
               </div>
               <div>
-                <label className="mb-2 block text-sm text-slate-700">
+                <label className="mb-2 block text-sm" style={{ color: "var(--text-primary)" }}>
                   Linha dos pneus (modelo empírico)
                 </label>
                 <select
@@ -339,7 +384,7 @@ export function Vehicles() {
                       estimatedLifeKm: "",
                     }))
                   }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25"
+                  className={selectCls}
                   required
                 >
                   <option value="economico">Econômico — desgaste relativo maior</option>
@@ -358,10 +403,6 @@ export function Vehicles() {
                 value={formData.estimatedLifeKm}
                 onChange={(e) => setFormData({ ...formData, estimatedLifeKm: e.target.value })}
               />
-              <p className="mt-1.5 text-xs text-slate-500">
-                Consulta catálogo local ou faixa do veículo: econômico ~40.000 km | intermediário
-                ~60.000 km | premium ~80.000 km
-              </p>
             </div>
 
             {formData.type === "Caminhão" ? (
@@ -378,10 +419,13 @@ export function Vehicles() {
                 />
               </div>
             ) : formData.type ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                <p className="text-sm text-slate-700">
+              <div
+                className="rounded-xl border p-4"
+                style={{ backgroundColor: "var(--bg-page)", borderColor: "var(--border-color)" }}
+              >
+                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                   Quantidade de pneus:{" "}
-                  <span className="font-semibold text-slate-900">{formData.tireCount}</span>
+                  <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{formData.tireCount}</span>
                   {" "}(uso automático conforme tipo)
                 </p>
               </div>
@@ -399,15 +443,15 @@ export function Vehicles() {
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-semibold text-slate-900 md:text-lg">Veículos cadastrados</h3>
-              <p className="text-xs text-slate-600 md:text-sm">{filteredVehicles.length} veículo(s) encontrado(s)</p>
+              <h3 className="text-base font-semibold md:text-lg" style={{ color: "var(--text-primary)" }}>Veículos cadastrados</h3>
+              <p className="text-xs md:text-sm" style={{ color: "var(--text-secondary)" }}>{filteredVehicles.length} veículo(s) encontrado(s)</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-600 md:text-sm">Filtrar:</span>
+              <span className="text-xs md:text-sm" style={{ color: "var(--text-secondary)" }}>Filtrar:</span>
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 md:px-4 md:text-sm"
+                className="h-10 rounded-xl border px-3 text-xs transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 md:px-4 md:text-sm border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)]"
               >
                 <option value="Todos">Todos</option>
                 <option value="Caminhão">Caminhão</option>
@@ -418,52 +462,53 @@ export function Vehicles() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/60">
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Marca</th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Modelo</th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Ano</th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Placa</th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Pneus</th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">
-                    Pneu (fab./modelo / linha)
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs text-slate-600 md:py-4 md:text-sm lg:px-6">Ações</th>
+                <tr
+                  className="border-b"
+                  style={{ backgroundColor: "var(--bg-page)", borderColor: "var(--border-color)" }}
+                >
+                  {["Tipo", "Marca", "Modelo", "Ano", "Placa", "Pneus", "Pneu (fab./modelo / linha)", "Ações"].map((h) => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {filteredVehicles.map((vehicle, index) => (
                   <tr
                     key={vehicle.id}
-                    className={`border-b border-slate-100 transition-colors hover:bg-slate-50 ${
-                      index % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                    }`}
+                    className="transition-colors last:border-0"
+                    style={{
+                      borderBottom: index < filteredVehicles.length - 1 ? "1px solid var(--border-color)" : undefined,
+                      backgroundColor: index % 2 === 0 ? "var(--bg-card)" : "var(--bg-page)",
+                    }}
                   >
-                    <td className="px-4 lg:px-6 py-3 md:py-4">
+                    <td className="px-5 py-3.5">
                       <span
-                        className={`inline-flex items-center gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs font-medium ${getVehicleBadgeColor(
-                          vehicle.type
-                        )}`}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${getVehicleBadgeColor(vehicle.type)}`}
                       >
                         {getVehicleIcon(vehicle.type)}
                         {vehicle.type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900 md:py-4 lg:px-6">{vehicle.brand}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{vehicle.model}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{vehicle.year}</td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4">
-                      <span className="rounded-lg bg-slate-100 px-2 py-1 font-mono text-xs text-slate-900 md:px-3 md:text-sm">
+                    <td className="px-5 py-3.5 text-sm font-medium" style={{ color: "var(--text-primary)" }}>{vehicle.brand}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{vehicle.model}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{vehicle.year}</td>
+                    <td className="px-5 py-3.5">
+                      <span
+                        className="rounded-md px-2 py-1 font-mono text-xs"
+                        style={{ backgroundColor: "var(--bg-page)", color: "var(--text-primary)" }}
+                      >
                         {vehicle.plate}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">{vehicle.tireCount}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700 md:py-4 lg:px-6">
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>{vehicle.tireCount}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: "var(--text-secondary)" }}>
                       {vehicle.tireManufacturer} {vehicle.tireModel}
-                      <span className="mt-0.5 block text-xs text-slate-500">
+                      <span className="mt-0.5 block text-xs" style={{ color: "var(--text-secondary)" }}>
                         Linha:{" "}
                         {vehicle.tireQualityTier === "economico"
                           ? "Econômico"
@@ -472,8 +517,8 @@ export function Vehicles() {
                             : "Intermediário"}
                       </span>
                     </td>
-                    <td className="px-4 lg:px-6 py-3 md:py-4">
-                      <Button variant="ghost" type="button" onClick={() => void removeVehicle(vehicle.id)}>
+                    <td className="px-5 py-3.5">
+                      <Button variant="ghost" size="sm" type="button" onClick={() => void removeVehicle(vehicle.id)}>
                         Remover
                       </Button>
                     </td>
@@ -485,21 +530,23 @@ export function Vehicles() {
 
           <div className="space-y-3 p-4 md:hidden">
             {filteredVehicles.map((vehicle) => (
-              <div key={vehicle.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+              <div
+                key={vehicle.id}
+                className="space-y-3 rounded-xl border p-4"
+                style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${getVehicleBadgeColor(
-                          vehicle.type
-                        )}`}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${getVehicleBadgeColor(vehicle.type)}`}
                       >
                         {getVehicleIcon(vehicle.type)}
                         {vehicle.type}
                       </span>
                     </div>
-                    <h4 className="font-medium text-slate-900">{vehicle.brand} {vehicle.model}</h4>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <h4 className="font-medium" style={{ color: "var(--text-primary)" }}>{vehicle.brand} {vehicle.model}</h4>
+                    <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                       Pneus: {vehicle.tireManufacturer} {vehicle.tireModel} • Linha{" "}
                       {vehicle.tireQualityTier === "economico"
                         ? "Econômico"
@@ -509,18 +556,21 @@ export function Vehicles() {
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-2">
+                <div
+                  className="grid grid-cols-2 gap-3 border-t pt-2"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
                   <div>
-                    <p className="text-xs text-slate-500">Ano</p>
-                    <p className="text-sm font-medium text-slate-900">{vehicle.year}</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Ano</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{vehicle.year}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Placa</p>
-                    <p className="text-sm font-mono font-medium text-slate-900">{vehicle.plate}</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Placa</p>
+                    <p className="text-sm font-mono font-medium" style={{ color: "var(--text-primary)" }}>{vehicle.plate}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Quantidade pneus</p>
-                    <p className="text-sm font-medium text-slate-900">{vehicle.tireCount}</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Quantidade pneus</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{vehicle.tireCount}</p>
                   </div>
                 </div>
                 <Button
