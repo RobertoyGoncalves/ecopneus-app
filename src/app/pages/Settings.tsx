@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
-import { Toggle } from "../components/ui/Toggle";
+import { SwitchToggle } from "../components/ui/SwitchToggle";
 import { Modal } from "../components/ui/Modal";
 import { useAuth } from "../contexts/AuthContext";
 import { useFleet } from "../contexts/FleetContext";
@@ -100,7 +100,7 @@ function ToggleRow({
           </p>
         )}
       </div>
-      <Toggle checked={checked} onChange={onChange} label={label} />
+      <SwitchToggle checked={checked} onChange={onChange} label={label} />
     </div>
   );
 }
