@@ -194,6 +194,224 @@ export const TIRE_SPECS_CATALOG: TireSpecEntry[] = [
   // ── Metzeler — Moto ───────────────────────────────────────────────────────
   { marca: "Metzeler", modelo: "Roadtec 01", km_estimado: 28000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto turismo premium" },
   { marca: "Metzeler", modelo: "Tourance Next 2", km_estimado: 25000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto adventure premium" },
+  { marca: "Metzeler", modelo: "Karoo 3", km_estimado: 22000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto adventure" },
+  { marca: "Metzeler", modelo: "Sportec M9 RR", km_estimado: 12000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto esportiva (desgaste rápido)" },
+  { marca: "Metzeler", modelo: "ME 888 Marathon Ultra", km_estimado: 35000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto custom cruiser" },
+
+  // ── Michelin — Carro (expansão) ───────────────────────────────────────────
+  { marca: "Michelin", modelo: "CrossClimate 2", km_estimado: 65000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — all-season premium" },
+  { marca: "Michelin", modelo: "Energy XM2+", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — passeio econômico" },
+  { marca: "Michelin", modelo: "Defender", km_estimado: 80000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring longa duração" },
+  { marca: "Michelin", modelo: "Latitude Tour HP", km_estimado: 60000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV highway" },
+  { marca: "Michelin", modelo: "LTX Trail", km_estimado: 70000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+  { marca: "Michelin", modelo: "Pilot Sport 5", km_estimado: 42000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Michelin", modelo: "e.Primacy", km_estimado: 70000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — elétrico/híbrido" },
+
+  // ── Michelin — Caminhão (expansão) ────────────────────────────────────────
+  { marca: "Michelin", modelo: "X Works", km_estimado: 75000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — construção/mineração" },
+  { marca: "Michelin", modelo: "X Works D", km_estimado: 78000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive off-road" },
+  { marca: "Michelin", modelo: "XZE2", km_estimado: 82000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer regional" },
+  { marca: "Michelin", modelo: "XDY", km_estimado: 88000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive longa distância" },
+
+  // ── Michelin — Moto (expansão) ──────────────────────────────────────────────
+  { marca: "Michelin", modelo: "Commander III", km_estimado: 32000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto custom cruiser" },
+  { marca: "Michelin", modelo: "Power 5", km_estimado: 14000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto esportiva" },
+  { marca: "Michelin", modelo: "City Grip 2", km_estimado: 18000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — scooter/urbana" },
+  { marca: "Michelin", modelo: "Anakee Wild", km_estimado: 20000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto adventure" },
+
+  // ── Bridgestone — Carro (expansão) ────────────────────────────────────────
+  { marca: "Bridgestone", modelo: "Turanza T005", km_estimado: 65000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring premium" },
+  { marca: "Bridgestone", modelo: "Potenza RE760 Sport", km_estimado: 45000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Bridgestone", modelo: "Dueler H/P Sport", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV highway" },
+  { marca: "Bridgestone", modelo: "Ecopia EP150", km_estimado: 50000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — passeio eficiência" },
+  { marca: "Bridgestone", modelo: "Atenza RE004", km_estimado: 48000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — performance verão" },
+  { marca: "Bridgestone", modelo: "Blizzak LM005", km_estimado: 40000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — inverno" },
+  { marca: "Bridgestone", modelo: "Alenza 001", km_estimado: 60000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV premium" },
+
+  // ── Bridgestone — Caminhão (expansão) ─────────────────────────────────────
+  { marca: "Bridgestone", modelo: "M729", km_estimado: 72000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — urbano caminhão" },
+  { marca: "Bridgestone", modelo: "M710 Ecopia", km_estimado: 85000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — longa distância" },
+  { marca: "Bridgestone", modelo: "R192", km_estimado: 78000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer regional" },
+  { marca: "Bridgestone", modelo: "R294", km_estimado: 82000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive regional" },
+
+  // ── Bridgestone — Moto (expansão) ─────────────────────────────────────────
+  { marca: "Bridgestone", modelo: "Battlax BT45", km_estimado: 20000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto turismo" },
+  { marca: "Bridgestone", modelo: "Battlax Adventure A41", km_estimado: 24000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto adventure" },
+  { marca: "Bridgestone", modelo: "Battlax Hypersport S22", km_estimado: 10000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto esportiva (desgaste rápido)" },
+
+  // ── Goodyear — Carro (expansão) ───────────────────────────────────────────
+  { marca: "Goodyear", modelo: "Assurance MaxLife", km_estimado: 75000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring longa duração" },
+  { marca: "Goodyear", modelo: "Eagle F1 Asymmetric 6", km_estimado: 42000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Goodyear", modelo: "Wrangler All-Terrain Adventure", km_estimado: 65000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+  { marca: "Goodyear", modelo: "Vector 4Seasons Gen-3", km_estimado: 58000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — all-season" },
+  { marca: "Goodyear", modelo: "EfficientGrip 2 SUV", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV" },
+  { marca: "Goodyear", modelo: "Cargo Ultra Grip", km_estimado: 50000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — comercial leve inverno" },
+
+  // ── Goodyear — Caminhão (expansão) ──────────────────────────────────────────
+  { marca: "Goodyear", modelo: "Fuel Max S", km_estimado: 88000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer longa distância" },
+  { marca: "Goodyear", modelo: "OMNITRAC MSS II", km_estimado: 80000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — misto on/off-road" },
+  { marca: "Goodyear", modelo: "Marathon LHD II", km_estimado: 75000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — urbano caminhão" },
+
+  // ── Pirelli — Carro (expansão) ──────────────────────────────────────────────
+  { marca: "Pirelli", modelo: "P Zero", km_estimado: 40000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Pirelli", modelo: "Scorpion Verde All Season", km_estimado: 60000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-season" },
+  { marca: "Pirelli", modelo: "Cinturato P1", km_estimado: 48000, tier: "economico", vehicleType: "Carro", fonte: "Catálogo EcoPneus — passeio econômico" },
+  { marca: "Pirelli", modelo: "Cinturato All Season SF2", km_estimado: 62000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — all-season" },
+  { marca: "Pirelli", modelo: "Scorpion ATR", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+  { marca: "Pirelli", modelo: "P Zero Rosso", km_estimado: 38000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — performance verão" },
+
+  // ── Pirelli — Caminhão (expansão) ─────────────────────────────────────────
+  { marca: "Pirelli", modelo: "ST01", km_estimado: 76000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer caminhão" },
+  { marca: "Pirelli", modelo: "TR01", km_estimado: 78000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — trailer caminhão" },
+
+  // ── Pirelli — Moto (expansão) ───────────────────────────────────────────────
+  { marca: "Pirelli", modelo: "Diablo Rosso IV", km_estimado: 12000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto esportiva" },
+  { marca: "Pirelli", modelo: "Angel City", km_estimado: 16000, tier: "economico", vehicleType: "Moto", fonte: "Catálogo EcoPneus — scooter/urbana" },
+  { marca: "Pirelli", modelo: "Night Dragon", km_estimado: 28000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto custom cruiser" },
+  { marca: "Pirelli", modelo: "Scorpion Rally STR", km_estimado: 18000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto adventure" },
+
+  // ── Continental — Carro (expansão) ────────────────────────────────────────
+  { marca: "Continental", modelo: "PremiumContact 6", km_estimado: 60000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring premium" },
+  { marca: "Continental", modelo: "EcoContact 6", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — passeio eficiência" },
+  { marca: "Continental", modelo: "CrossContact LX2", km_estimado: 58000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV highway" },
+  { marca: "Continental", modelo: "SportContact 7", km_estimado: 40000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Continental", modelo: "AllSeasonContact", km_estimado: 62000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — all-season" },
+  { marca: "Continental", modelo: "VanContact Ultra", km_estimado: 65000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — van/comercial leve" },
+
+  // ── Continental — Caminhão (expansão) ───────────────────────────────────────
+  { marca: "Continental", modelo: "HSC2", km_estimado: 78000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer regional" },
+  { marca: "Continental", modelo: "HDC1", km_estimado: 80000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive regional" },
+  { marca: "Continental", modelo: "Conti Hybrid HS5", km_estimado: 85000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer longa distância" },
+
+  // ── Continental — Moto (expansão) ───────────────────────────────────────────
+  { marca: "Continental", modelo: "ContiTrailAttack 2", km_estimado: 20000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto adventure" },
+  { marca: "Continental", modelo: "ContiAttack SM", km_estimado: 10000, tier: "premium", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto esportiva" },
+  { marca: "Continental", modelo: "ContiScoot", km_estimado: 14000, tier: "economico", vehicleType: "Moto", fonte: "Catálogo EcoPneus — scooter" },
+
+  // ── Firestone — Carro (expansão) ──────────────────────────────────────────────
+  { marca: "Firestone", modelo: "F-590", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring" },
+  { marca: "Firestone", modelo: "Destination LE3", km_estimado: 60000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV highway" },
+  { marca: "Firestone", modelo: "Destination A/T2", km_estimado: 65000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+
+  // ── Firestone — Caminhão (expansão) ─────────────────────────────────────────
+  { marca: "Firestone", modelo: "FD663", km_estimado: 68000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer caminhão" },
+  { marca: "Firestone", modelo: "FS595", km_estimado: 70000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive caminhão" },
+
+  // ── Hankook — Carro (expansão) ──────────────────────────────────────────────
+  { marca: "Hankook", modelo: "Ventus Prime 4", km_estimado: 58000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring" },
+  { marca: "Hankook", modelo: "Ventus S1 evo3", km_estimado: 42000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Hankook", modelo: "Dynapro HP2", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV highway" },
+  { marca: "Hankook", modelo: "Dynapro AT2", km_estimado: 62000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+  { marca: "Hankook", modelo: "Optimo H724", km_estimado: 50000, tier: "economico", vehicleType: "Carro", fonte: "Catálogo EcoPneus — passeio" },
+  { marca: "Hankook", modelo: "Kinergy 4S2", km_estimado: 60000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — all-season" },
+
+  // ── Hankook — Caminhão (expansão) ───────────────────────────────────────────
+  { marca: "Hankook", modelo: "DH31", km_estimado: 76000, tier: "premium", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive caminhão" },
+  { marca: "Hankook", modelo: "TH31", km_estimado: 74000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — trailer caminhão" },
+  { marca: "Hankook", modelo: "AM09", km_estimado: 70000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — misto on/off-road" },
+
+  // ── Dunlop — Carro (expansão) ───────────────────────────────────────────────
+  { marca: "Dunlop", modelo: "SP Sport Maxx 050+", km_estimado: 45000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Dunlop", modelo: "Grandtrek PT3", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV highway" },
+  { marca: "Dunlop", modelo: "SP Winter Sport 5", km_estimado: 40000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — inverno" },
+
+  // ── Dunlop — Caminhão (expansão) ────────────────────────────────────────────
+  { marca: "Dunlop", modelo: "SP 828", km_estimado: 70000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer caminhão" },
+
+  // ── Dunlop — Moto (expansão) ──────────────────────────────────────────────────
+  { marca: "Dunlop", modelo: "Geomax MX53", km_estimado: 8000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto off-road" },
+  { marca: "Dunlop", modelo: "Trailmax Mission", km_estimado: 22000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto adventure" },
+
+  // ── Yokohama — Carro (expansão) ───────────────────────────────────────────────
+  { marca: "Yokohama", modelo: "Advan Sport V105", km_estimado: 42000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Yokohama", modelo: "BluEarth-GT AE51", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring" },
+  { marca: "Yokohama", modelo: "Geolandar G055", km_estimado: 60000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV highway" },
+  { marca: "Yokohama", modelo: "Geolandar A/T G015", km_estimado: 65000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+
+  // ── Yokohama — Caminhão (expansão) ────────────────────────────────────────────
+  { marca: "Yokohama", modelo: "124R", km_estimado: 74000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer caminhão" },
+  { marca: "Yokohama", modelo: "TY517", km_estimado: 76000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive caminhão" },
+
+  // ── Kumho — Carro (expansão) ──────────────────────────────────────────────────
+  { marca: "Kumho", modelo: "Ecsta PS71", km_estimado: 42000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "Kumho", modelo: "Solus TA71", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring" },
+  { marca: "Kumho", modelo: "Crugen HP71", km_estimado: 52000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV highway" },
+  { marca: "Kumho", modelo: "Road Venture AT51", km_estimado: 60000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+
+  // ── Kumho — Caminhão (expansão) ───────────────────────────────────────────────
+  { marca: "Kumho", modelo: "KRD50", km_estimado: 70000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive caminhão" },
+  { marca: "Kumho", modelo: "KLS11", km_estimado: 68000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — steer caminhão" },
+
+  // ── BF Goodrich — Carro ───────────────────────────────────────────────────────
+  { marca: "BF Goodrich", modelo: "All-Terrain T/A KO2", km_estimado: 70000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain premium" },
+  { marca: "BF Goodrich", modelo: "Advantage T/A Sport", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring" },
+  { marca: "BF Goodrich", modelo: "g-Force Sport Comp-2", km_estimado: 38000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — ultra-high performance" },
+  { marca: "BF Goodrich", modelo: "Trail-Terrain T/A", km_estimado: 65000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+
+  // ── BF Goodrich — Caminhão ────────────────────────────────────────────────────
+  { marca: "BF Goodrich", modelo: "DR 450", km_estimado: 72000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Catálogo EcoPneus — drive caminhão" },
+
+  // ── Barum — Carro ─────────────────────────────────────────────────────────────
+  { marca: "Barum", modelo: "Bravuris 5HM", km_estimado: 50000, tier: "economico", vehicleType: "Carro", fonte: "Catálogo EcoPneus — passeio econômico" },
+  { marca: "Barum", modelo: "Polaris 5", km_estimado: 55000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring" },
+  { marca: "Barum", modelo: "Quartaris 5", km_estimado: 48000, tier: "economico", vehicleType: "Carro", fonte: "Catálogo EcoPneus — all-season econômico" },
+
+  // ── Nokian — Carro ────────────────────────────────────────────────────────────
+  { marca: "Nokian", modelo: "Seasonproof 1", km_estimado: 65000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — all-season premium" },
+  { marca: "Nokian", modelo: "WR Snowproof P", km_estimado: 50000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — inverno" },
+  { marca: "Nokian", modelo: "Hakkapeliitta R5", km_estimado: 45000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — inverno extremo" },
+  { marca: "Nokian", modelo: "Outpost AT", km_estimado: 68000, tier: "premium", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+
+  // ── Maxxis — Carro ────────────────────────────────────────────────────────────
+  { marca: "Maxxis", modelo: "Bravo HP-M3", km_estimado: 48000, tier: "economico", vehicleType: "Carro", fonte: "Catálogo EcoPneus — passeio" },
+  { marca: "Maxxis", modelo: "Premitra HP5", km_estimado: 52000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — touring" },
+  { marca: "Maxxis", modelo: "Victra Sport VS5", km_estimado: 40000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — performance verão" },
+  { marca: "Maxxis", modelo: "AT980", km_estimado: 58000, tier: "intermediario", vehicleType: "Carro", fonte: "Catálogo EcoPneus — SUV all-terrain" },
+
+  // ── Maxxis — Moto ─────────────────────────────────────────────────────────────
+  { marca: "Maxxis", modelo: "MA-ST3", km_estimado: 18000, tier: "intermediario", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto turismo" },
+  { marca: "Maxxis", modelo: "M6024", km_estimado: 8000, tier: "economico", vehicleType: "Moto", fonte: "Catálogo EcoPneus — moto off-road" },
+
+  // ── Westlake — Carro ──────────────────────────────────────────────────────────
+  { marca: "Westlake", modelo: "RP18", km_estimado: 42000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio econômico" },
+  { marca: "Westlake", modelo: "SU318", km_estimado: 45000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — SUV econômico" },
+  { marca: "Westlake", modelo: "SL369", km_estimado: 48000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — SUV all-terrain econômico" },
+
+  // ── Apollo — Carro ────────────────────────────────────────────────────────────
+  { marca: "Apollo", modelo: "Alnac 4G", km_estimado: 50000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio" },
+  { marca: "Apollo", modelo: "Amazer 4G Life", km_estimado: 48000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio longa duração" },
+  { marca: "Apollo", modelo: "Apterra HP", km_estimado: 52000, tier: "intermediario", vehicleType: "Carro", fonte: "Estimativa EcoPneus — SUV highway" },
+
+  // ── Aeolus — Carro ────────────────────────────────────────────────────────────
+  { marca: "Aeolus", modelo: "PrecisionAce AG02", km_estimado: 45000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio" },
+  { marca: "Aeolus", modelo: "CrossAce AT01", km_estimado: 50000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — SUV all-terrain" },
+
+  // ── Fiorano — Carro ───────────────────────────────────────────────────────────
+  { marca: "Fiorano", modelo: "Supermax", km_estimado: 38000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio econômico nacional" },
+  { marca: "Fiorano", modelo: "Ecovision", km_estimado: 40000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio econômico nacional" },
+  { marca: "Fiorano", modelo: "Aro 15", km_estimado: 42000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio econômico nacional" },
+
+  // ── IRC — Moto ────────────────────────────────────────────────────────────────
+  { marca: "IRC", modelo: "Road Winner", km_estimado: 16000, tier: "economico", vehicleType: "Moto", fonte: "Estimativa EcoPneus — moto urbana nacional" },
+  { marca: "IRC", modelo: "RX-01", km_estimado: 12000, tier: "economico", vehicleType: "Moto", fonte: "Estimativa EcoPneus — moto off-road" },
+  { marca: "IRC", modelo: "Tirex", km_estimado: 18000, tier: "intermediario", vehicleType: "Moto", fonte: "Estimativa EcoPneus — moto turismo" },
+
+  // ── Levorin — Moto (expansão) ─────────────────────────────────────────────────
+  { marca: "Levorin", modelo: "Matrix", km_estimado: 14000, tier: "economico", vehicleType: "Moto", fonte: "Estimativa EcoPneus — moto urbana nacional" },
+  { marca: "Levorin", modelo: "Trail Force", km_estimado: 16000, tier: "economico", vehicleType: "Moto", fonte: "Estimativa EcoPneus — moto trail nacional" },
+
+  // ── Maggion — Carro ───────────────────────────────────────────────────────────
+  { marca: "Maggion", modelo: "Eco Sport", km_estimado: 42000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio nacional" },
+  { marca: "Maggion", modelo: "Aro 14", km_estimado: 38000, tier: "economico", vehicleType: "Carro", fonte: "Estimativa EcoPneus — passeio econômico nacional" },
+
+  // ── Nexen — Caminhão ──────────────────────────────────────────────────────────
+  { marca: "Nexen", modelo: "Roadian 581", km_estimado: 68000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Estimativa EcoPneus — steer caminhão" },
+
+  // ── Cooper — Caminhão ─────────────────────────────────────────────────────────
+  { marca: "Cooper", modelo: "Roadmaster RM300", km_estimado: 70000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Estimativa EcoPneus — steer caminhão" },
+
+  // ── General Tire — Caminhão ───────────────────────────────────────────────────
+  { marca: "General Tire", modelo: "S581", km_estimado: 72000, tier: "intermediario", vehicleType: "Caminhão", fonte: "Estimativa EcoPneus — steer caminhão" },
 ];
 
 function normalizeKey(value: string): string {
