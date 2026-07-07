@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { useNavigate } from "react-router";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabaseClient";
+import { clearAllAvatarCache } from "../lib/avatarCache";
 
 export type Papel = "autonomo" | "funcionario" | "chefe";
 
@@ -216,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSupabaseUserId(null);
     localStorage.removeItem("ecopneu_currentUser");
+    clearAllAvatarCache();
     navigate("/");
   }, [navigate]);
 

@@ -12,7 +12,7 @@ import {
 import { BrandLogo } from "../BrandLogo";
 import { useAuth } from "../../contexts/AuthContext";
 import { getSupabase, isSupabaseConfigured } from "../../lib/supabaseClient";
-import { AVATAR_KEY } from "../../pages/Settings";
+import { avatarStorageKey } from "../../lib/avatarCache";
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -38,14 +38,23 @@ function SectionLabel({ label }: { label: string }) {
 export function Sidebar({ onNavigate, tireCount = 0, tripCount = 0 }: SidebarProps) {
   const { user, logout, supabaseUserId, papel } = useAuth();
 
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    () => localStorage.getItem(AVATAR_KEY)
-  );
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Fetch avatar from Supabase when user loads
+  // Per-user cache for first paint; always reconciled with Supabase below
+  useEffect(() => {
+    if (!supabaseUserId) {
+      setAvatarUrl(null);
+      return;
+    }
+    setAvatarUrl(localStorage.getItem(avatarStorageKey(supabaseUserId)));
+  }, [supabaseUserId]);
+
+  // Always fetch avatar_url from Supabase when the logged-in user changes
   useEffect(() => {
     if (!isSupabaseConfigured() || !supabaseUserId) return;
-    if (localStorage.getItem(AVATAR_KEY)) return; // already cached
+
+    const storageKey = avatarStorageKey(supabaseUserId);
+
     void getSupabase()
       .from("profiles")
       .select("avatar_url")
@@ -54,19 +63,25 @@ export function Sidebar({ onNavigate, tireCount = 0, tripCount = 0 }: SidebarPro
       .then(({ data }) => {
         if (data?.avatar_url) {
           setAvatarUrl(data.avatar_url as string);
-          localStorage.setItem(AVATAR_KEY, data.avatar_url as string);
+          localStorage.setItem(storageKey, data.avatar_url as string);
+        } else {
+          setAvatarUrl(null);
+          localStorage.removeItem(storageKey);
         }
       });
   }, [supabaseUserId]);
 
   // Listen for avatar changes made in Settings (same tab)
   useEffect(() => {
+    if (!supabaseUserId) return;
+
+    const storageKey = avatarStorageKey(supabaseUserId);
     const handler = (e: StorageEvent) => {
-      if (e.key === AVATAR_KEY) setAvatarUrl(e.newValue);
+      if (e.key === storageKey) setAvatarUrl(e.newValue);
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
-  }, []);
+  }, [supabaseUserId]);
 
   const badgeValue = (key: "tires" | "trips" | null): number | null => {
     if (key === "tires") return tireCount;

@@ -26,6 +26,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFleet } from "../contexts/FleetContext";
 import { useTrips } from "../contexts/TripsContext";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabaseClient";
+import { avatarStorageKey } from "../lib/avatarCache";
 import { exportTripsToExcel, exportFleetToExcel } from "../lib/exportUtils";
 import type { TireQualityTier } from "../domain/wearModel";
 
@@ -35,7 +36,6 @@ const UNIT_KEY = "ecopneus-unit";
 const NOTIF_KEY = "ecopneus-notifications";
 const FLEET_DEFAULTS_KEY = "ecopneus-fleet-defaults";
 const PHONE_KEY = "ecopneus-profile-phone";
-export const AVATAR_KEY = "ecopneus-avatar-url";
 
 const selectCls =
   "h-11 w-full rounded-xl border px-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)]";
@@ -123,9 +123,7 @@ export function Settings() {
   const [profileSaving, setProfileSaving] = useState(false);
 
   // Avatar
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    () => localStorage.getItem(AVATAR_KEY)
-  );
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,9 +132,21 @@ export function Settings() {
     setCompany(user?.companyName ?? "");
   }, [user]);
 
-  // Fetch avatar_url from Supabase on mount
+  // Per-user cache for first paint; always reconciled with Supabase below
+  useEffect(() => {
+    if (!supabaseUserId) {
+      setAvatarUrl(null);
+      return;
+    }
+    setAvatarUrl(localStorage.getItem(avatarStorageKey(supabaseUserId)));
+  }, [supabaseUserId]);
+
+  // Always fetch avatar_url from Supabase when the logged-in user changes
   useEffect(() => {
     if (!isSupabaseConfigured() || !supabaseUserId) return;
+
+    const storageKey = avatarStorageKey(supabaseUserId);
+
     void getSupabase()
       .from("profiles")
       .select("avatar_url")
@@ -145,7 +155,10 @@ export function Settings() {
       .then(({ data }) => {
         if (data?.avatar_url) {
           setAvatarUrl(data.avatar_url as string);
-          localStorage.setItem(AVATAR_KEY, data.avatar_url as string);
+          localStorage.setItem(storageKey, data.avatar_url as string);
+        } else {
+          setAvatarUrl(null);
+          localStorage.removeItem(storageKey);
         }
       });
   }, [supabaseUserId]);
@@ -184,10 +197,11 @@ export function Settings() {
 
       if (updateError) throw updateError;
 
+      const storageKey = avatarStorageKey(supabaseUserId);
       setAvatarUrl(url);
-      localStorage.setItem(AVATAR_KEY, url);
+      localStorage.setItem(storageKey, url);
       // Notify Sidebar (same tab) via storage event simulation
-      window.dispatchEvent(new StorageEvent("storage", { key: AVATAR_KEY, newValue: url }));
+      window.dispatchEvent(new StorageEvent("storage", { key: storageKey, newValue: url }));
       toast.success("Foto de perfil atualizada.");
     } catch (err: unknown) {
       const e = err as Record<string, unknown>;
