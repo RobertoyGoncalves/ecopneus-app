@@ -7,6 +7,7 @@ import {
   Map as MapIcon,
   LogOut,
   Settings,
+  Users,
 } from "lucide-react";
 import { BrandLogo } from "../BrandLogo";
 import { useAuth } from "../../contexts/AuthContext";
@@ -35,7 +36,7 @@ function SectionLabel({ label }: { label: string }) {
 }
 
 export function Sidebar({ onNavigate, tireCount = 0, tripCount = 0 }: SidebarProps) {
-  const { user, logout, supabaseUserId } = useAuth();
+  const { user, logout, supabaseUserId, papel } = useAuth();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     () => localStorage.getItem(AVATAR_KEY)
@@ -139,6 +140,35 @@ export function Sidebar({ onNavigate, tireCount = 0, tripCount = 0 }: SidebarPro
               </li>
             );
           })}
+
+          {/* Visível apenas para chefe */}
+          {papel === "chefe" && (
+            <li>
+              <NavLink
+                to="/app/funcionarios"
+                end={false}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "border-l-2 border-[#16a34a] bg-white/10 pl-[10px] text-white"
+                      : "text-white/60 hover:bg-white/5 hover:text-white/90"
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Users
+                      className={`h-4 w-4 flex-shrink-0 transition-colors ${
+                        isActive ? "text-[#16a34a]" : "text-white/40"
+                      }`}
+                    />
+                    <span className="flex-1">Funcionários</span>
+                  </>
+                )}
+              </NavLink>
+            </li>
+          )}
         </ul>
 
         <SectionLabel label="Conta" />

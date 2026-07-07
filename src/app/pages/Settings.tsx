@@ -11,6 +11,11 @@ import {
   Download,
   Camera,
   Loader2,
+  UserPlus,
+  Link2,
+  Building2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
@@ -107,7 +112,7 @@ function ToggleRow({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function Settings() {
-  const { user, supabaseUserId } = useAuth();
+  const { user, supabaseUserId, papel, empresaId } = useAuth();
   const { vehicles, tires } = useFleet();
   const { trips } = useTrips();
 
@@ -375,6 +380,139 @@ export function Settings() {
     toast.success(`Frota exportada: ${vehicles.length} veículo(s), ${tires.length} pneu(s).`);
   };
 
+  // ── Section 7: Empresa / Hierarquia ────────────────────────────────────────
+
+  // --- chefe state ---
+  const [gerandoConvite, setGerandoConvite] = useState(false);
+  const [conviteGerado, setConviteGerado] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [codigoCopied, setCodigoCopied] = useState(false);
+  const [convitesAnteriores, setConvitesAnteriores] = useState<
+    { code: string; status: string; created_at: string; expires_at: string }[]
+  >([]);
+  const [loadingConvites, setLoadingConvites] = useState(false);
+
+  // --- autonomo state ---
+  const [codigoConviteInput, setCodigoConviteInput] = useState("");
+  const [vinculando, setVinculando] = useState(false);
+  const [erroVinculo, setErroVinculo] = useState<string | null>(null);
+  const [vinculouComSucesso, setVinculouComSucesso] = useState(false);
+
+  // --- funcionario state ---
+  const [nomeChefe, setNomeChefe] = useState<string | null>(null);
+
+  // Busca lista de convites emitidos (chefe)
+  useEffect(() => {
+    if (papel !== "chefe" || !supabaseUserId || !isSupabaseConfigured()) return;
+    setLoadingConvites(true);
+    void getSupabase()
+      .from("invite_codes")
+      .select("code, status, created_at, expires_at")
+      .eq("chefe_id", supabaseUserId)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => setConvitesAnteriores(
+        (data ?? []) as { code: string; status: string; created_at: string; expires_at: string }[]
+      ))
+      .finally(() => setLoadingConvites(false));
+  }, [papel, supabaseUserId]);
+
+  // Busca nome do chefe (funcionario)
+  useEffect(() => {
+    if (papel !== "funcionario" || !empresaId || !isSupabaseConfigured()) return;
+    void getSupabase()
+      .from("profiles")
+      .select("full_name, company_name")
+      .eq("id", empresaId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const d = data as { full_name: string | null; company_name: string | null };
+          setNomeChefe(d.company_name || d.full_name || "seu chefe");
+        }
+      });
+  }, [papel, empresaId]);
+
+  const handleGerarConvite = async () => {
+    if (!isSupabaseConfigured()) {
+      toast.error("Disponível apenas com Supabase configurado.");
+      return;
+    }
+    setGerandoConvite(true);
+    try {
+      const { data, error } = await getSupabase().rpc("gerar_convite");
+      if (error) throw error;
+      const res = data as { ok: boolean; code?: string; expires_at?: string; erro?: string };
+      if (!res.ok) {
+        toast.error(res.erro ?? "Erro ao gerar convite.");
+        return;
+      }
+      const newConvite = { code: res.code!, expiresAt: res.expires_at! };
+      setConviteGerado(newConvite);
+      setConvitesAnteriores((prev) => [
+        { code: res.code!, status: "ativo", created_at: new Date().toISOString(), expires_at: res.expires_at! },
+        ...prev,
+      ]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Não foi possível gerar o código. Tente novamente.");
+    } finally {
+      setGerandoConvite(false);
+    }
+  };
+
+  const handleCopiarCodigo = (code: string) => {
+    void navigator.clipboard.writeText(code).then(() => {
+      setCodigoCopied(true);
+      setTimeout(() => setCodigoCopied(false), 2000);
+    });
+  };
+
+  const handleVincular = async () => {
+    const code = codigoConviteInput.trim().toUpperCase();
+    if (!code) {
+      setErroVinculo("Informe o código de convite.");
+      return;
+    }
+    if (!isSupabaseConfigured()) {
+      toast.error("Disponível apenas com Supabase configurado.");
+      return;
+    }
+    setVinculando(true);
+    setErroVinculo(null);
+    try {
+      const { data, error } = await getSupabase().rpc("usar_convite", { p_code: code });
+      if (error) throw error;
+      const res = data as { ok: boolean; chefe_id?: string; erro?: string };
+      if (!res.ok) {
+        setErroVinculo(res.erro ?? "Código inválido ou expirado.");
+        return;
+      }
+      setVinculouComSucesso(true);
+      toast.success("Vinculado com sucesso! Atualizando...");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      console.error(err);
+      setErroVinculo("Erro ao tentar usar o código. Tente novamente.");
+    } finally {
+      setVinculando(false);
+    }
+  };
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  const conviteStatusCls = (status: string) => {
+    if (status === "ativo") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    if (status === "usado") return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+    return "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400";
+  };
+
+  const conviteStatusLabel = (status: string) => {
+    if (status === "ativo") return "Ativo";
+    if (status === "usado") return "Usado";
+    return "Expirado";
+  };
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="p-4 md:p-6 lg:p-8">
@@ -494,6 +632,188 @@ export function Settings() {
             </div>
           </div>
         </SectionCard>
+
+        {/* ── 1b. Empresa / Hierarquia ───────────────────────────────────────── */}
+
+        {/* CHEFE: gerar e listar convites */}
+        {papel === "chefe" && (
+          <SectionCard
+            icon={UserPlus}
+            title="Convidar funcionário"
+            description="Gere um código de convite para vincular um funcionário à sua empresa"
+            iconBg="bg-orange-100"
+            iconColor="text-orange-700"
+          >
+            <div className="space-y-5">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void handleGerarConvite()}
+                disabled={gerandoConvite}
+              >
+                {gerandoConvite ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Gerando…</>
+                ) : (
+                  <><UserPlus className="mr-2 h-4 w-4" />Gerar código de convite</>
+                )}
+              </Button>
+
+              {/* Código recém-gerado */}
+              {conviteGerado && (
+                <div
+                  className="rounded-xl border p-4 space-y-3"
+                  style={{ borderColor: "var(--border-color)", backgroundColor: "var(--bg-page)" }}
+                >
+                  <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                    Código gerado
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="flex-1 rounded-lg bg-green-50 px-4 py-3 font-mono text-2xl font-bold tracking-[0.25em] text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                      {conviteGerado.code}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopiarCodigo(conviteGerado.code)}
+                      title="Copiar código"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+                      style={{ borderColor: "var(--border-color)" }}
+                    >
+                      {codigoCopied
+                        ? <Check className="h-4 w-4 text-green-600" />
+                        : <Copy className="h-4 w-4" style={{ color: "var(--text-secondary)" }} />
+                      }
+                    </button>
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    Válido até <span className="font-medium" style={{ color: "var(--text-primary)" }}>{fmtDate(conviteGerado.expiresAt)}</span>
+                    {" "}· Use uma vez · Não compartilhe publicamente.
+                  </p>
+                </div>
+              )}
+
+              {/* Lista de convites anteriores */}
+              {(convitesAnteriores.length > 0 || loadingConvites) && (
+                <div>
+                  <p className="mb-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                    Convites emitidos
+                  </p>
+                  {loadingConvites ? (
+                    <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                      <Loader2 className="h-4 w-4 animate-spin" />Carregando…
+                    </div>
+                  ) : (
+                    <div className="divide-y rounded-xl border overflow-hidden" style={{ borderColor: "var(--border-color)" }}>
+                      {convitesAnteriores.map((c) => (
+                        <div
+                          key={c.code}
+                          className="flex items-center justify-between gap-3 px-4 py-3"
+                          style={{ backgroundColor: "var(--bg-card)" }}
+                        >
+                          <span className="font-mono text-sm font-semibold tracking-widest" style={{ color: "var(--text-primary)" }}>
+                            {c.code}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="hidden text-xs sm:block" style={{ color: "var(--text-secondary)" }}>
+                              {fmtDate(c.created_at)}
+                            </span>
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${conviteStatusCls(c.status)}`}>
+                              {conviteStatusLabel(c.status)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* AUTÔNOMO: entrar em uma empresa */}
+        {papel === "autonomo" && (
+          <SectionCard
+            icon={Link2}
+            title="Entrar em uma empresa"
+            description="Use um código de convite para se vincular à frota de um gestor"
+            iconBg="bg-blue-100"
+            iconColor="text-blue-700"
+          >
+            {vinculouComSucesso ? (
+              <div className="flex items-center gap-3 rounded-xl bg-green-50 p-4 dark:bg-green-900/20">
+                <Check className="h-5 w-5 shrink-0 text-green-600" />
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                  Vinculado com sucesso! Atualizando o sistema…
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
+                  <Input
+                    label="Código de convite"
+                    value={codigoConviteInput}
+                    onChange={(e) => {
+                      setCodigoConviteInput(e.target.value.toUpperCase());
+                      setErroVinculo(null);
+                    }}
+                    placeholder="Ex: A1B2C3D4"
+                    maxLength={8}
+                    style={{ fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase" }}
+                  />
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => void handleVincular()}
+                      disabled={vinculando || !codigoConviteInput.trim()}
+                      className="w-full sm:w-auto"
+                    >
+                      {vinculando ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Vinculando…</>
+                      ) : (
+                        <><Link2 className="mr-2 h-4 w-4" />Vincular</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                {erroVinculo && (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                    {erroVinculo}
+                  </p>
+                )}
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  Peça o código ao gestor da empresa. Após vincular, você terá acesso à frota dele e não poderá se desvincular por aqui.
+                </p>
+              </div>
+            )}
+          </SectionCard>
+        )}
+
+        {/* FUNCIONÁRIO: informações de vínculo */}
+        {papel === "funcionario" && (
+          <SectionCard
+            icon={Building2}
+            title="Empresa"
+            description="Informações sobre o seu vínculo empresarial"
+            iconBg="bg-green-100"
+            iconColor="text-green-700"
+          >
+            <div className="flex items-start gap-3 rounded-xl border p-4" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--bg-page)" }}>
+              <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  Você está vinculado à empresa de{" "}
+                  <span className="text-green-700 dark:text-green-400">
+                    {nomeChefe ?? "…"}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                  Você opera os veículos e pneus desta frota. Para se desvincular, entre em contato com o gestor.
+                </p>
+              </div>
+            </div>
+          </SectionCard>
+        )}
 
         {/* ── 2. Preferências do sistema ─────────────────────────────────────── */}
         <SectionCard

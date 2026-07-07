@@ -34,16 +34,31 @@ function rowToTire(row: Record<string, unknown>): FleetTire {
   };
 }
 
-export async function remoteFetchFleet(userId: string): Promise<{ vehicles: FleetVehicle[]; tires: FleetTire[] }> {
+/**
+ * Busca todos os veículos e pneus cujo dono_id = donoId.
+ *
+ * donoId resolve para:
+ *  - autônomo → supabaseUserId (id do próprio usuário)
+ *  - chefe    → supabaseUserId (ele é o dono da frota)
+ *  - funcionário → empresaId (id do chefe ao qual está vinculado)
+ *
+ * A RLS no banco aplica a mesma regra; o filtro explícito aqui é uma
+ * segunda camada de segurança e garante que a query retorne apenas os
+ * dados corretos mesmo antes da sessão do Supabase ser propagada.
+ */
+export async function remoteFetchFleet(donoId: string): Promise<{ vehicles: FleetVehicle[]; tires: FleetTire[] }> {
   const supabase = getSupabase();
   const { data: vRows, error: vErr } = await supabase
     .from("vehicles")
     .select("*")
-    .eq("user_id", userId)
+    .eq("dono_id", donoId)
     .order("created_at", { ascending: false });
   if (vErr) throw vErr;
 
-  const { data: tRows, error: tErr } = await supabase.from("tires").select("*").eq("user_id", userId);
+  const { data: tRows, error: tErr } = await supabase
+    .from("tires")
+    .select("*")
+    .eq("dono_id", donoId);
   if (tErr) throw tErr;
 
   const vehicles = (vRows ?? []).map((r) => rowToVehicle(r as Record<string, unknown>));
@@ -51,12 +66,22 @@ export async function remoteFetchFleet(userId: string): Promise<{ vehicles: Flee
   return { vehicles, tires };
 }
 
-export async function remoteAddVehicle(userId: string, draft: Omit<FleetVehicle, "id">): Promise<{ vehicles: FleetVehicle[]; tires: FleetTire[] }> {
+/**
+ * Cadastra um veículo novo com dono_id = donoId e cria seus pneus iniciais.
+ *
+ * Para funcionário: donoId = empresaId do chefe.
+ * Para autônomo/chefe: donoId = supabaseUserId.
+ *
+ * user_id mantido com o mesmo valor que dono_id durante a transição
+ * (coluna deprecada ainda é NOT NULL no schema).
+ */
+export async function remoteAddVehicle(donoId: string, draft: Omit<FleetVehicle, "id">): Promise<{ vehicles: FleetVehicle[]; tires: FleetTire[] }> {
   const supabase = getSupabase();
   const { data: row, error } = await supabase
     .from("vehicles")
     .insert({
-      user_id: userId,
+      dono_id: donoId,
+      user_id: donoId,   // deprecado; mesmo valor durante a transição
       type: draft.type,
       brand: draft.brand,
       model: draft.model,
@@ -75,7 +100,8 @@ export async function remoteAddVehicle(userId: string, draft: Omit<FleetVehicle,
   const tireInserts = [];
   for (let i = 0; i < vehicle.tireCount; i++) {
     tireInserts.push({
-      user_id: userId,
+      dono_id: donoId,
+      user_id: donoId,   // deprecado; mesmo valor durante a transição
       vehicle_id: vehicle.id,
       model: vehicle.tireModel,
       brand: vehicle.tireManufacturer,
@@ -100,20 +126,40 @@ function axisForIndex(index: number, total: number): string {
   return index < half ? "Dianteiro" : "Traseiro";
 }
 
-export async function remoteRemoveVehicle(userId: string, vehicleId: string): Promise<void> {
+/**
+ * Remove um veículo (e seus pneus por cascade).
+ * Filtra por dono_id para garantir que só o dono (ou quem tem permissão via RLS) pode deletar.
+ */
+export async function remoteRemoveVehicle(donoId: string, vehicleId: string): Promise<void> {
   const supabase = getSupabase();
-  const { error } = await supabase.from("vehicles").delete().eq("id", vehicleId).eq("user_id", userId);
+  const { error } = await supabase
+    .from("vehicles")
+    .delete()
+    .eq("id", vehicleId)
+    .eq("dono_id", donoId);
   if (error) throw error;
 }
 
-export async function remoteRemoveTire(userId: string, tireId: string): Promise<void> {
+/**
+ * Remove um pneu individual.
+ * Filtra por dono_id para garantir propriedade.
+ */
+export async function remoteRemoveTire(donoId: string, tireId: string): Promise<void> {
   const supabase = getSupabase();
-  const { error } = await supabase.from("tires").delete().eq("id", tireId).eq("user_id", userId);
+  const { error } = await supabase
+    .from("tires")
+    .delete()
+    .eq("id", tireId)
+    .eq("dono_id", donoId);
   if (error) throw error;
 }
 
+/**
+ * Atualiza campos de um pneu existente.
+ * Filtra por dono_id para garantir propriedade.
+ */
 export async function remoteUpdateTire(
-  userId: string,
+  donoId: string,
   tireId: string,
   patch: Partial<Pick<FleetTire, "model" | "brand" | "axis" | "health">>
 ): Promise<void> {
@@ -126,24 +172,37 @@ export async function remoteUpdateTire(
     payload.health = Math.min(100, Math.max(0, Number(patch.health)));
   }
   if (Object.keys(payload).length === 0) return;
-  const { error } = await supabase.from("tires").update(payload).eq("id", tireId).eq("user_id", userId);
+  const { error } = await supabase
+    .from("tires")
+    .update(payload)
+    .eq("id", tireId)
+    .eq("dono_id", donoId);
   if (error) throw error;
 }
 
+/**
+ * Substitui um pneu: deleta o antigo e insere um novo no mesmo veículo.
+ * dono_id = donoId em ambas as operações.
+ */
 export async function remoteReplaceTire(
-  userId: string,
+  donoId: string,
   oldTireId: string,
   draft: Omit<FleetTire, "id" | "vehicle">,
   vehicleLabel: string
 ): Promise<FleetTire> {
   const supabase = getSupabase();
-  const { error: delErr } = await supabase.from("tires").delete().eq("id", oldTireId).eq("user_id", userId);
+  const { error: delErr } = await supabase
+    .from("tires")
+    .delete()
+    .eq("id", oldTireId)
+    .eq("dono_id", donoId);
   if (delErr) throw delErr;
 
   const { data: row, error: insErr } = await supabase
     .from("tires")
     .insert({
-      user_id: userId,
+      dono_id: donoId,
+      user_id: donoId,   // deprecado; mesmo valor durante a transição
       vehicle_id: draft.vehicleId,
       model: draft.model,
       brand: draft.brand,
@@ -158,27 +217,38 @@ export async function remoteReplaceTire(
   return rowToTire(row as Record<string, unknown>);
 }
 
-
-export async function remoteApplyTripWear(userId: string, vehicleId: string, lifeDeltaPercent: number): Promise<void> {
+/**
+ * Aplica desgaste percentual a todos os pneus de um veículo após uma viagem.
+ * Filtra pneus por dono_id = donoId e vehicle_id = vehicleId.
+ */
+export async function remoteApplyTripWear(donoId: string, vehicleId: string, lifeDeltaPercent: number): Promise<void> {
   if (!Number.isFinite(lifeDeltaPercent) || lifeDeltaPercent <= 0) return;
   const supabase = getSupabase();
   const { data: tires, error: fetchErr } = await supabase
     .from("tires")
     .select("id, health")
-    .eq("user_id", userId)
+    .eq("dono_id", donoId)
     .eq("vehicle_id", vehicleId);
   if (fetchErr) throw fetchErr;
   for (const t of tires ?? []) {
     const id = String((t as Record<string, unknown>).id);
     const health = Number((t as Record<string, unknown>).health);
     const next = Math.round(Math.max(0, health - lifeDeltaPercent) * 100) / 100;
-    const { error } = await supabase.from("tires").update({ health: next }).eq("id", id).eq("user_id", userId);
+    const { error } = await supabase
+      .from("tires")
+      .update({ health: next })
+      .eq("id", id)
+      .eq("dono_id", donoId);
     if (error) throw error;
   }
 }
 
+/**
+ * Cadastra um pneu avulso manualmente.
+ * dono_id = donoId (chefe ou autônomo).
+ */
 export async function remoteAddManualTire(
-  userId: string,
+  donoId: string,
   tire: Omit<FleetTire, "id" | "vehicleId"> & { vehicleId: string | null }
 ): Promise<FleetTire> {
   const supabase = getSupabase();
@@ -188,7 +258,8 @@ export async function remoteAddManualTire(
   const { data: row, error } = await supabase
     .from("tires")
     .insert({
-      user_id: userId,
+      dono_id: donoId,
+      user_id: donoId,   // deprecado; mesmo valor durante a transição
       vehicle_id: tire.vehicleId,
       model: tire.model,
       brand: tire.brand,

@@ -234,23 +234,47 @@ interface FleetContextType {
     patch: Partial<Pick<FleetTire, "model" | "brand" | "axis" | "health">>
   ) => Promise<void>;
   replaceTire: (oldTireId: string, draft: Omit<FleetTire, "id" | "vehicle">) => Promise<void>;
+  /**
+   * Quando preenchido (apenas para chefe), o Dashboard deve filtrar
+   * a visualização para mostrar somente os dados operados por esse funcionário.
+   * null = visão agregada de toda a empresa (padrão).
+   */
+  filtroFuncionarioId: string | null;
+  setFiltroFuncionarioId: (id: string | null) => void;
 }
 
 const FleetContext = createContext<FleetContextType | undefined>(undefined);
 
 export function FleetProvider({ children }: { children: ReactNode }) {
-  const { supabaseUserId, authReady } = useAuth();
+  const { supabaseUserId, authReady, papel, empresaId } = useAuth();
   const useRemote = isSupabaseConfigured() && !!supabaseUserId;
+
+  /**
+   * donoId: o ID cujos dados devem ser buscados no banco.
+   *
+   * - funcionário → empresaId (chefe ao qual está vinculado)
+   * - autônomo/chefe → supabaseUserId (dados próprios)
+   * - não autenticado → null (bloqueia chamadas remotas)
+   */
+  const donoId = useMemo(() => {
+    if (!supabaseUserId) return null;
+    if (papel === "funcionario" && empresaId) return empresaId;
+    return supabaseUserId;
+  }, [supabaseUserId, papel, empresaId]);
 
   const [{ vehicles, tires }, setFleet] = useState(initialFleetState);
   const [fleetLoading, setFleetLoading] = useState(() => isSupabaseConfigured());
+
+  /** Filtro de funcionário específico para o chefe visualizar no dashboard.
+   *  null = visão agregada de toda a empresa (padrão). */
+  const [filtroFuncionarioId, setFiltroFuncionarioId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!useRemote) {
       setFleetLoading(false);
       return;
     }
-    if (!authReady || !supabaseUserId) {
+    if (!authReady || !donoId) {
       setFleet({ vehicles: [], tires: [] });
       setFleetLoading(false);
       return;
@@ -259,7 +283,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setFleetLoading(true);
     void fleetRemote
-      .remoteFetchFleet(supabaseUserId)
+      .remoteFetchFleet(donoId)
       .then((data) => {
         if (!cancelled) setFleet(data);
       })
@@ -273,12 +297,13 @@ export function FleetProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [useRemote, authReady, supabaseUserId]);
+  }, [useRemote, authReady, donoId]);
 
   useEffect(() => {
     if (!authReady) return;
     if (isSupabaseConfigured() && !supabaseUserId) {
       setFleet({ vehicles: [], tires: [] });
+      setFiltroFuncionarioId(null);
     }
   }, [authReady, supabaseUserId]);
 
@@ -293,8 +318,8 @@ export function FleetProvider({ children }: { children: ReactNode }) {
 
   const addVehicle = useCallback(
     async (draft: Omit<FleetVehicle, "id">) => {
-      if (useRemote && supabaseUserId) {
-        const { vehicles: nv, tires: nt } = await fleetRemote.remoteAddVehicle(supabaseUserId, draft);
+      if (useRemote && donoId) {
+        const { vehicles: nv, tires: nt } = await fleetRemote.remoteAddVehicle(donoId, draft);
         setFleet((prev) => ({
           vehicles: [...nv, ...prev.vehicles],
           tires: [...nt, ...prev.tires],
@@ -322,13 +347,13 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         tires: [...newTires, ...prev.tires],
       }));
     },
-    [useRemote, supabaseUserId]
+    [useRemote, donoId]
   );
 
   const removeVehicle = useCallback(
     async (vehicleId: string) => {
-      if (useRemote && supabaseUserId) {
-        await fleetRemote.remoteRemoveVehicle(supabaseUserId, vehicleId);
+      if (useRemote && donoId) {
+        await fleetRemote.remoteRemoveVehicle(donoId, vehicleId);
         setFleet((prev) => ({
           vehicles: prev.vehicles.filter((v) => v.id !== vehicleId),
           tires: prev.tires.filter((t) => t.vehicleId !== vehicleId),
@@ -340,13 +365,13 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         tires: prev.tires.filter((t) => t.vehicleId !== vehicleId),
       }));
     },
-    [useRemote, supabaseUserId]
+    [useRemote, donoId]
   );
 
   const removeTire = useCallback(
     async (tireId: string) => {
-      if (useRemote && supabaseUserId) {
-        await fleetRemote.remoteRemoveTire(supabaseUserId, tireId);
+      if (useRemote && donoId) {
+        await fleetRemote.remoteRemoveTire(donoId, tireId);
         setFleet((prev) => ({
           ...prev,
           tires: prev.tires.filter((t) => t.id !== tireId),
@@ -358,7 +383,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         tires: prev.tires.filter((t) => t.id !== tireId),
       }));
     },
-    [useRemote, supabaseUserId]
+    [useRemote, donoId]
   );
 
   const updateTire = useCallback(
@@ -366,8 +391,8 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       tireId: string,
       patch: Partial<Pick<FleetTire, "model" | "brand" | "axis" | "health">>
     ) => {
-      if (useRemote && supabaseUserId) {
-        await fleetRemote.remoteUpdateTire(supabaseUserId, tireId, patch);
+      if (useRemote && donoId) {
+        await fleetRemote.remoteUpdateTire(donoId, tireId, patch);
         setFleet((prev) => ({
           ...prev,
           tires: prev.tires.map((t) => {
@@ -393,16 +418,16 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         }),
       }));
     },
-    [useRemote, supabaseUserId]
+    [useRemote, donoId]
   );
 
   const replaceTire = useCallback(
     async (oldTireId: string, draft: Omit<FleetTire, "id" | "vehicle">) => {
-      if (useRemote && supabaseUserId) {
+      if (useRemote && donoId) {
         const vehicle = vehicles.find((v) => v.id === draft.vehicleId);
         const label = vehicle ? formatVehicleLabel(vehicle) : "";
         const newTire = await fleetRemote.remoteReplaceTire(
-          supabaseUserId,
+          donoId,
           oldTireId,
           draft,
           label
@@ -428,13 +453,13 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         };
       });
     },
-    [useRemote, supabaseUserId, vehicles]
+    [useRemote, donoId, vehicles]
   );
 
   const applyTripWearToVehicle = useCallback(
     async (vehicleId: string, lifeDeltaPercent: number) => {
-      if (useRemote && supabaseUserId) {
-        await fleetRemote.remoteApplyTripWear(supabaseUserId, vehicleId, lifeDeltaPercent);
+      if (useRemote && donoId) {
+        await fleetRemote.remoteApplyTripWear(donoId, vehicleId, lifeDeltaPercent);
         setFleet((prev) => ({
           ...prev,
           tires: prev.tires.map((t) => {
@@ -457,7 +482,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         }),
       }));
     },
-    [useRemote, supabaseUserId]
+    [useRemote, donoId]
   );
 
   const addManualTire = useCallback(
@@ -466,8 +491,8 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         vehicleId: string | null;
       }
     ) => {
-      if (useRemote && supabaseUserId) {
-        const full = await fleetRemote.remoteAddManualTire(supabaseUserId, tire);
+      if (useRemote && donoId) {
+        const full = await fleetRemote.remoteAddManualTire(donoId, tire);
         setFleet((prev) => ({ ...prev, tires: [full, ...prev.tires] }));
         return;
       }
@@ -488,7 +513,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         return { ...prev, tires: [full, ...prev.tires] };
       });
     },
-    [useRemote, supabaseUserId]
+    [useRemote, donoId]
   );
 
   const value = useMemo(
@@ -503,6 +528,8 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       removeTire,
       updateTire,
       replaceTire,
+      filtroFuncionarioId,
+      setFiltroFuncionarioId,
     }),
     [
       vehicles,
@@ -515,6 +542,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       removeTire,
       updateTire,
       replaceTire,
+      filtroFuncionarioId,
     ]
   );
 

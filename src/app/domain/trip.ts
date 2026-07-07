@@ -29,4 +29,6 @@ export interface Trip {
   lonDestino?: number;
   /** UUID do veículo na nuvem (quando persistido no Supabase). */
   vehicleId?: string;
+  /** UUID do usuário que operou a viagem (operador_id no banco). */
+  operadorId?: string;
 }

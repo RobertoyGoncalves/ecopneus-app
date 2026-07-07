@@ -55,16 +55,29 @@ function rowToTrip(row: Record<string, unknown>): Trip {
         ? Number(row.lon_destino)
         : undefined,
     vehicleId: row.vehicle_id != null ? String(row.vehicle_id) : undefined,
+    operadorId: row.operador_id != null ? String(row.operador_id) : undefined,
   };
 }
 
+/**
+ * Monta o payload de inserção de uma viagem.
+ *
+ * donoId   → dono_id no banco (chefe ou autônomo; para funcionário = empresaId)
+ * operatorId → operador_id no banco (sempre auth.uid() de quem está registrando)
+ *
+ * user_id mantido com o mesmo valor que dono_id durante a transição
+ * (coluna deprecada ainda é NOT NULL no schema).
+ */
 function tripToInsert(
-  userId: string,
+  donoId: string,
+  operatorId: string,
   trip: Omit<Trip, "id">,
   vehicleId?: string | null
 ): Record<string, unknown> {
   return {
-    user_id: userId,
+    dono_id: donoId,
+    user_id: donoId,       // deprecado; mesmo valor durante a transição
+    operador_id: operatorId,
     vehicle_id: vehicleId ?? trip.vehicleId ?? null,
     vehicle_label: trip.vehicle,
     vehicle_type: trip.vehicleType,
@@ -86,38 +99,65 @@ function tripToInsert(
   };
 }
 
-export async function fetchTrips(userId: string): Promise<Trip[]> {
+/**
+ * Busca todas as viagens cujo dono_id = donoId, ordenadas da mais recente.
+ *
+ * donoId resolve para:
+ *  - autônomo   → supabaseUserId
+ *  - chefe      → supabaseUserId
+ *  - funcionário → empresaId (chefe ao qual está vinculado)
+ */
+export async function fetchTrips(donoId: string): Promise<Trip[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("trips")
     .select("*")
-    .eq("user_id", userId)
+    .eq("dono_id", donoId)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => rowToTrip(r as Record<string, unknown>));
 }
 
+/**
+ * Registra uma nova viagem.
+ *
+ * donoId     → passado pelo caller (supabaseUserId para autônomo/chefe;
+ *               empresaId para funcionário — quando o contexto for atualizado).
+ * operatorId → sempre auth.uid() da sessão ativa. Obtido internamente para
+ *               garantir que o campo não pode ser forjado pelo caller.
+ */
 export async function insertTrip(
-  userId: string,
+  donoId: string,
   trip: Omit<Trip, "id">,
   vehicleId?: string | null
 ): Promise<Trip> {
   const supabase = getSupabase();
+
+  // operador_id deve ser sempre quem está autenticado no momento do registro,
+  // independente do papel. Fallback para donoId apenas como segurança defensiva
+  // (nunca deve ocorrer em condições normais).
+  const { data: { session } } = await supabase.auth.getSession();
+  const operatorId = session?.user?.id ?? donoId;
+
   const { data, error } = await supabase
     .from("trips")
-    .insert(tripToInsert(userId, trip, vehicleId))
+    .insert(tripToInsert(donoId, operatorId, trip, vehicleId))
     .select()
     .single();
   if (error) throw error;
   return rowToTrip(data as Record<string, unknown>);
 }
 
-export async function deleteTrip(userId: string, tripId: string): Promise<void> {
+/**
+ * Remove uma viagem.
+ * Filtra por dono_id para garantir que só o dono (ou quem tem permissão via RLS) pode deletar.
+ */
+export async function deleteTrip(donoId: string, tripId: string): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase
     .from("trips")
     .delete()
     .eq("id", tripId)
-    .eq("user_id", userId);
+    .eq("dono_id", donoId);
   if (error) throw error;
 }

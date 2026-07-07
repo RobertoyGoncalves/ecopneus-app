@@ -23,6 +23,18 @@ const Trips = lazy(() =>
     }))
 );
 
+const Funcionarios = lazy(() =>
+  import("./pages/Funcionarios")
+    .then((m) => ({ default: m.Funcionarios }))
+    .catch((err: unknown) => ({
+      default: () => (
+        <div className="p-6 text-sm text-amber-800">
+          Erro ao carregar Funcionários: {err instanceof Error ? err.message : "erro desconhecido"}
+        </div>
+      ),
+    }))
+);
+
 function PageLoading() {
   return (
     <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-500">
@@ -61,6 +73,14 @@ export function AppRoutes() {
           element={
             <Suspense fallback={<PageLoading />}>
               <Trips />
+            </Suspense>
+          }
+        />
+        <Route
+          path="funcionarios"
+          element={
+            <Suspense fallback={<PageLoading />}>
+              <Funcionarios />
             </Suspense>
           }
         />

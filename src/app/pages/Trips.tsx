@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
 import { Input } from "../components/Input";
@@ -6,7 +6,14 @@ import { StatusBadge } from "../components/ui/StatusBadge";
 import { MapPin } from "lucide-react";
 import { formatVehicleLabel, useFleet } from "../contexts/FleetContext";
 import { useTrips } from "../contexts/TripsContext";
+import { useAuth } from "../contexts/AuthContext";
 import type { Trip } from "../domain/trip";
+import { getSupabase, isSupabaseConfigured } from "../lib/supabaseClient";
+import {
+  DriverAvatarButton,
+  DriverSummaryModal,
+  type OperatorProfile,
+} from "../components/ui/DriverSummaryModal";
 import type { DayPeriod, RoadCondition, TireQualityTier } from "../domain/wearModel";
 import {
   computeTripLifeConsumptionPercent,
@@ -34,6 +41,8 @@ const tierLabels: Record<TireQualityTier, string> = {
 export function Trips() {
   const { vehicles, tires, applyTripWearToVehicle } = useFleet();
   const { trips, addTrip } = useTrips();
+  const { supabaseUserId, papel, empresaId } = useAuth();
+  const donoId = papel === "funcionario" && empresaId ? empresaId : supabaseUserId;
 
   const [tierOverride, setTierOverride] = useState(false);
   const [filterType, setFilterType] = useState("Todos");
@@ -282,6 +291,34 @@ export function Trips() {
   const filteredTrips = filterType === "Todos"
     ? trips
     : trips.filter((t) => t.vehicleType === filterType);
+
+  // ── Operator profiles for Motorista column ────────────────────────────────
+
+  const operatorIds = useMemo(
+    () => [...new Set(filteredTrips.flatMap((t) => (t.operadorId ? [t.operadorId] : [])))],
+    [filteredTrips]
+  );
+
+  const [operatorProfiles, setOperatorProfiles] = useState<Record<string, OperatorProfile>>({});
+  const [driverModalId, setDriverModalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ids = operatorIds;
+    if (!ids.length || !isSupabaseConfigured() || !donoId) return;
+    void getSupabase()
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", ids)
+      .then(({ data }) => {
+        const map: Record<string, OperatorProfile> = {};
+        for (const row of data ?? []) {
+          const r = row as { id: string; full_name: string | null; avatar_url: string | null };
+          map[r.id] = { fullName: r.full_name, avatarUrl: r.avatar_url };
+        }
+        setOperatorProfiles((prev) => ({ ...prev, ...map }));
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operatorIds.join(","), donoId]);
 
   const selectCls = "h-11 w-full rounded-xl border px-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all focus:border-[#16a34a] focus:outline-none focus:ring-2 focus:ring-[#16a34a]/25 bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-color)]";
   const selectCls11 = selectCls + " disabled:opacity-60 disabled:cursor-not-allowed";
@@ -621,7 +658,7 @@ export function Trips() {
                   className="border-b"
                   style={{ backgroundColor: "var(--bg-page)", borderColor: "var(--border-color)" }}
                 >
-                  {["Veículo", "Tipo", "Distância (km)", "Carga?", "Peso carga (kg)", "V méd (km/h)", "Estrada", "Vida / viagem", "Pneus", "Valor", "Uso", "Data"].map((h) => (
+                  {["Motorista", "Veículo", "Tipo", "Distância (km)", "Carga?", "Peso carga (kg)", "V méd (km/h)", "Estrada", "Vida / viagem", "Pneus", "Valor", "Uso", "Data"].map((h) => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
                       {h}
                     </th>
@@ -639,6 +676,13 @@ export function Trips() {
                         : undefined
                     }
                   >
+                    <td className="px-5 py-3.5">
+                      <DriverAvatarButton
+                        operadorId={trip.operadorId}
+                        profiles={operatorProfiles}
+                        onOpen={(id) => setDriverModalId(id)}
+                      />
+                    </td>
                     <td className="px-5 py-3.5 text-sm font-medium" style={{ color: "var(--text-primary)" }}>{trip.vehicle}</td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={trip.vehicleType} label={trip.vehicleType} />
@@ -686,6 +730,15 @@ export function Trips() {
                       </span>
                       <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{trip.date}</span>
                     </div>
+                    {trip.operadorId && (
+                      <div className="mt-2">
+                        <DriverAvatarButton
+                          operadorId={trip.operadorId}
+                          profiles={operatorProfiles}
+                          onOpen={(id) => setDriverModalId(id)}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div
@@ -737,6 +790,11 @@ export function Trips() {
           </div>
         </CardContent>
       </Card>
+
+      <DriverSummaryModal
+        driverId={driverModalId}
+        onClose={() => setDriverModalId(null)}
+      />
     </div>
   );
 }

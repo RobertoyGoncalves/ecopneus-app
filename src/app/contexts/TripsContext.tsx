@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -16,21 +17,45 @@ interface TripsContextType {
   tripsLoading: boolean;
   addTrip: (trip: Omit<Trip, "id"> & { id?: string; vehicleId?: string }) => Promise<void>;
   removeTrip: (tripId: string) => Promise<void>;
+  /**
+   * Quando preenchido (apenas para chefe), o Dashboard deve filtrar
+   * as viagens para exibir apenas as operadas por esse funcionário.
+   * null = visão agregada de toda a empresa (padrão).
+   */
+  filtroFuncionarioId: string | null;
+  setFiltroFuncionarioId: (id: string | null) => void;
 }
 
 const TripsContext = createContext<TripsContextType | undefined>(undefined);
 
 export function TripsProvider({ children }: { children: ReactNode }) {
-  const { supabaseUserId, authReady } = useAuth();
+  const { supabaseUserId, authReady, papel, empresaId } = useAuth();
   const useRemote = isSupabaseConfigured() && !!supabaseUserId;
+
+  /**
+   * donoId: o ID cujos dados devem ser buscados no banco.
+   *
+   * - funcionário → empresaId (chefe ao qual está vinculado)
+   * - autônomo/chefe → supabaseUserId (dados próprios)
+   * - não autenticado → null (bloqueia chamadas remotas)
+   */
+  const donoId = useMemo(() => {
+    if (!supabaseUserId) return null;
+    if (papel === "funcionario" && empresaId) return empresaId;
+    return supabaseUserId;
+  }, [supabaseUserId, papel, empresaId]);
 
   const [trips, setTrips] = useState<Trip[]>([]);
   const [tripsLoading, setTripsLoading] = useState(false);
 
+  /** Filtro de funcionário específico para o chefe visualizar no dashboard.
+   *  null = visão agregada de toda a empresa (padrão). */
+  const [filtroFuncionarioId, setFiltroFuncionarioId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!authReady) return;
 
-    if (!useRemote || !supabaseUserId) {
+    if (!useRemote || !donoId) {
       setTrips([]);
       setTripsLoading(false);
       return;
@@ -40,7 +65,7 @@ export function TripsProvider({ children }: { children: ReactNode }) {
     setTripsLoading(true);
 
     void tripsRemote
-      .fetchTrips(supabaseUserId)
+      .fetchTrips(donoId)
       .then((rows) => {
         if (!cancelled) setTrips(rows);
       })
@@ -55,14 +80,21 @@ export function TripsProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [useRemote, authReady, supabaseUserId]);
+  }, [useRemote, authReady, donoId]);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (isSupabaseConfigured() && !supabaseUserId) {
+      setFiltroFuncionarioId(null);
+    }
+  }, [authReady, supabaseUserId]);
 
   const addTrip = useCallback(
     async (trip: Omit<Trip, "id"> & { id?: string; vehicleId?: string }) => {
       const { vehicleId, ...tripFields } = trip;
 
-      if (useRemote && supabaseUserId) {
-        const inserted = await tripsRemote.insertTrip(supabaseUserId, tripFields, vehicleId ?? null);
+      if (useRemote && donoId) {
+        const inserted = await tripsRemote.insertTrip(donoId, tripFields, vehicleId ?? null);
         setTrips((prev) => [inserted, ...prev]);
         return;
       }
@@ -75,21 +107,21 @@ export function TripsProvider({ children }: { children: ReactNode }) {
             : String(Date.now());
       setTrips((prev) => [{ ...tripFields, id }, ...prev]);
     },
-    [useRemote, supabaseUserId]
+    [useRemote, donoId]
   );
 
   const removeTrip = useCallback(
     async (tripId: string) => {
-      if (useRemote && supabaseUserId) {
-        await tripsRemote.deleteTrip(supabaseUserId, tripId);
+      if (useRemote && donoId) {
+        await tripsRemote.deleteTrip(donoId, tripId);
       }
       setTrips((prev) => prev.filter((t) => t.id !== tripId));
     },
-    [useRemote, supabaseUserId]
+    [useRemote, donoId]
   );
 
   return (
-    <TripsContext.Provider value={{ trips, tripsLoading, addTrip, removeTrip }}>
+    <TripsContext.Provider value={{ trips, tripsLoading, addTrip, removeTrip, filtroFuncionarioId, setFiltroFuncionarioId }}>
       {children}
     </TripsContext.Provider>
   );

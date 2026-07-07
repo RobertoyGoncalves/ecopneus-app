@@ -18,8 +18,15 @@ import {
 } from "recharts";
 import { useFleet } from "../contexts/FleetContext";
 import { useTrips } from "../contexts/TripsContext";
+import { useAuth } from "../contexts/AuthContext";
 import type { Trip } from "../domain/trip";
 import { formatWearPercent } from "../domain/wearModel";
+import { getSupabase, isSupabaseConfigured } from "../lib/supabaseClient";
+import {
+  DriverAvatarButton,
+  DriverSummaryModal,
+  type OperatorProfile,
+} from "../components/ui/DriverSummaryModal";
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -369,6 +376,8 @@ export function Dashboard() {
   const { vehicles, tires, fleetLoading } = useFleet();
   const { trips } = useTrips();
   const navigate = useNavigate();
+  const { supabaseUserId, papel, empresaId } = useAuth();
+  const donoId = papel === "funcionario" && empresaId ? empresaId : supabaseUserId;
 
   const avgTireHealth = useMemo(() => {
     if (tires.length === 0) return null;
@@ -382,6 +391,34 @@ export function Dashboard() {
     () => [...trips].sort((a, b) => tripSortTime(b) - tripSortTime(a)).slice(0, 8),
     [trips]
   );
+
+  // ── Operator profiles for Motorista column ────────────────────────────────
+
+  const operatorIds = useMemo(
+    () => [...new Set(recentTrips.flatMap((t) => (t.operadorId ? [t.operadorId] : [])))],
+    [recentTrips]
+  );
+
+  const [operatorProfiles, setOperatorProfiles] = useState<Record<string, OperatorProfile>>({});
+  const [driverModalId, setDriverModalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ids = operatorIds;
+    if (!ids.length || !isSupabaseConfigured() || !donoId) return;
+    void getSupabase()
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", ids)
+      .then(({ data }) => {
+        const map: Record<string, OperatorProfile> = {};
+        for (const row of data ?? []) {
+          const r = row as { id: string; full_name: string | null; avatar_url: string | null };
+          map[r.id] = { fullName: r.full_name, avatarUrl: r.avatar_url };
+        }
+        setOperatorProfiles((prev) => ({ ...prev, ...map }));
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operatorIds.join(","), donoId]);
 
   const kpis: KpiCardProps[] = [
     {
@@ -519,7 +556,7 @@ export function Dashboard() {
                     className="border-b"
                     style={{ borderColor: "var(--border-color)", backgroundColor: "var(--bg-page)" }}
                   >
-                    {["Veículo", "Origem → Destino", "Distância", "Desgaste", "Data", "Status"].map(
+                    {["Motorista", "Veículo", "Origem → Destino", "Distância", "Desgaste", "Data", "Status"].map(
                       (col) => (
                         <th
                           key={col}
@@ -548,6 +585,13 @@ export function Dashboard() {
                             : undefined
                         }
                       >
+                        <td className="px-5 py-3">
+                          <DriverAvatarButton
+                            operadorId={trip.operadorId}
+                            profiles={operatorProfiles}
+                            onOpen={(id) => setDriverModalId(id)}
+                          />
+                        </td>
                         <td
                           className="px-5 py-3 text-sm font-medium"
                           style={{ color: "var(--text-primary)" }}
@@ -626,6 +670,15 @@ export function Dashboard() {
                         Concluída
                       </span>
                     </div>
+                    {trip.operadorId && (
+                      <div className="mt-2">
+                        <DriverAvatarButton
+                          operadorId={trip.operadorId}
+                          profiles={operatorProfiles}
+                          onOpen={(id) => setDriverModalId(id)}
+                        />
+                      </div>
+                    )}
                     <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
                       {truncate(trip.origem, 30)} → {truncate(trip.destino, 30)}
                     </p>
@@ -655,6 +708,11 @@ export function Dashboard() {
           </>
         )}
       </div>
+
+      <DriverSummaryModal
+        driverId={driverModalId}
+        onClose={() => setDriverModalId(null)}
+      />
     </div>
   );
 }

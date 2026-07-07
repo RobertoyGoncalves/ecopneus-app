@@ -3,11 +3,17 @@ import { useNavigate } from "react-router";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabaseClient";
 
+export type Papel = "autonomo" | "funcionario" | "chefe";
+
 export interface User {
   fullName: string;
   email: string;
   userType: "individual" | "company";
   companyName?: string;
+  /** Papel na hierarquia. Padrão: 'autonomo'. */
+  papel: Papel;
+  /** ID do chefe ao qual este usuário está vinculado. Presente apenas quando papel = 'funcionario'. */
+  empresaId?: string;
 }
 
 interface AuthContextType {
@@ -20,22 +26,41 @@ interface AuthContextType {
   register: (userData: User & { password: string }) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  /** Atalho para user.papel — sempre disponível sem precisar checar user !== null. */
+  papel: Papel;
+  /** Atalho para user.empresaId. Não-nulo apenas quando papel = 'funcionario'. */
+  empresaId: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function mapSupabaseUser(
   sbUser: SupabaseUser,
-  profile: { full_name: string | null; user_type: string | null; company_name: string | null } | null
+  profile: {
+    full_name: string | null;
+    user_type: string | null;
+    company_name: string | null;
+    papel: string | null;
+    empresa_id: string | null;
+  } | null
 ): User {
   const meta = (sbUser.user_metadata ?? {}) as Record<string, string | undefined>;
   const userType: User["userType"] =
     profile?.user_type === "company" || meta.user_type === "company" ? "company" : "individual";
+
+  const rawPapel = profile?.papel;
+  const papel: Papel =
+    rawPapel === "chefe" || rawPapel === "funcionario" || rawPapel === "autonomo"
+      ? rawPapel
+      : "autonomo";
+
   return {
     email: sbUser.email ?? "",
     fullName: profile?.full_name || meta.full_name || "",
     userType,
     companyName: profile?.company_name || meta.company_name || undefined,
+    papel,
+    empresaId: profile?.empresa_id ?? undefined,
   };
 }
 
@@ -46,7 +71,7 @@ async function hydrateFromSupabaseSession(session: Session | null): Promise<{ us
   const supabase = getSupabase();
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("full_name, user_type, company_name")
+    .select("full_name, user_type, company_name, papel, empresa_id")
     .eq("id", session.user.id)
     .maybeSingle();
 
@@ -142,9 +167,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (emailExists) {
           return { ok: false, error: "E-mail já cadastrado." };
         }
-        users.push(userData);
+        const userToStore = { ...userData, papel: userData.papel ?? ("autonomo" as Papel) };
+        users.push(userToStore);
         localStorage.setItem("ecopneu_users", JSON.stringify(users));
-        const { password: _, ...userWithoutPassword } = userData;
+        const { password: _, ...userWithoutPassword } = userToStore;
         setUser(userWithoutPassword);
         setSupabaseUserId(null);
         localStorage.setItem("ecopneu_currentUser", JSON.stringify(userWithoutPassword));
@@ -203,6 +229,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         isAuthenticated: !!user,
+        papel: user?.papel ?? "autonomo",
+        empresaId: user?.empresaId ?? null,
       }}
     >
       {children}
