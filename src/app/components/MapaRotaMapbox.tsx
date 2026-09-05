@@ -13,6 +13,8 @@ const DEFAULT_ZOOM = 4;
 const GPS_ZOOM = 13;
 const ROUTE_LAYER_ID = "rota-layer";
 const ROUTE_SOURCE_ID = "rota-source";
+const DEBOUNCE_MS = 300;
+const PLACES_BASE = "https://places.googleapis.com/v1";
 
 type MapPoint = {
   coord: Coordenada;
@@ -32,41 +34,110 @@ type DirectionsResponse = {
 
 type MapInstance = InstanceType<MapboxLibs["mapboxgl"]["Map"]>;
 type MarkerInstance = InstanceType<MapboxLibs["mapboxgl"]["Marker"]>;
-type GeocoderInstance = InstanceType<MapboxLibs["MapboxGeocoder"]>;
+
+// ── Google Places API (New) types ─────────────────────────────────────────────
+
+type PlaceSuggestion = {
+  placePrediction: {
+    placeId: string;
+    text: { text: string };
+    structuredFormat?: {
+      mainText: { text: string };
+      secondaryText?: { text: string };
+    };
+  };
+};
+
+type AutocompleteResponse = { suggestions?: PlaceSuggestion[] };
+
+type PlaceDetailsResponse = {
+  location?: { latitude: number; longitude: number };
+  displayName?: { text: string };
+  formattedAddress?: string;
+};
+
+// ── Utility functions ─────────────────────────────────────────────────────────
 
 async function loadMapboxLibs(): Promise<MapboxLibs> {
-  const [mapboxMod, geocoderMod, workerMod] = await Promise.all([
+  const [mapboxMod, workerMod] = await Promise.all([
     import("mapbox-gl"),
-    import("@mapbox/mapbox-gl-geocoder"),
     import("mapbox-gl/dist/mapbox-gl-csp-worker.js?worker"),
     import("mapbox-gl/dist/mapbox-gl.css"),
-    import("@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css"),
   ]);
 
   const mapboxgl =
     (mapboxMod as { default?: MapboxLibs["mapboxgl"] }).default ??
     (mapboxMod as unknown as MapboxLibs["mapboxgl"]);
 
-  const MapboxGeocoder =
-    (geocoderMod as { default?: MapboxLibs["MapboxGeocoder"] }).default ??
-    (geocoderMod as unknown as MapboxLibs["MapboxGeocoder"]);
-
-  if (!mapboxgl?.Map) {
-    throw new Error("Falha ao carregar mapbox-gl.");
-  }
+  if (!mapboxgl?.Map) throw new Error("Falha ao carregar mapbox-gl.");
 
   const WorkerClass = workerMod.default;
-  if (WorkerClass && "workerClass" in mapboxgl) {
-    mapboxgl.workerClass = WorkerClass;
-  }
+  if (WorkerClass && "workerClass" in mapboxgl) mapboxgl.workerClass = WorkerClass;
 
-  return { mapboxgl, MapboxGeocoder };
+  return { mapboxgl };
 }
 
 function getMapboxToken(): string {
   const token = import.meta.env.VITE_MAPBOX_TOKEN;
   if (!token) throw new Error("Chave Mapbox não configurada (VITE_MAPBOX_TOKEN).");
   return token;
+}
+
+function getGooglePlacesKey(): string {
+  const key = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+  if (!key) throw new Error("Chave Google Places não configurada (VITE_GOOGLE_PLACES_API_KEY).");
+  return key;
+}
+
+/**
+ * POST /v1/places:autocomplete
+ * Usa os headers obrigatórios da Places API (New): X-Goog-Api-Key e X-Goog-FieldMask.
+ * Passa `signal` para permitir cancelamento via AbortController.
+ */
+async function googlePlacesAutocomplete(
+  input: string,
+  signal: AbortSignal,
+): Promise<PlaceSuggestion[]> {
+  const key = getGooglePlacesKey();
+  const res = await fetch(`${PLACES_BASE}/places:autocomplete`, {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask": [
+        "suggestions.placePrediction.placeId",
+        "suggestions.placePrediction.text",
+        "suggestions.placePrediction.structuredFormat",
+      ].join(","),
+    },
+    body: JSON.stringify({ input, regionCode: "BR", languageCode: "pt-BR" }),
+  });
+  if (!res.ok) throw new Error(`Google Places Autocomplete: HTTP ${res.status}`);
+  const data = (await res.json()) as AutocompleteResponse;
+  return data.suggestions ?? [];
+}
+
+/**
+ * GET /v1/places/{placeId}
+ * Retorna coordenadas e rótulo do lugar para repassar ao Mapbox Directions.
+ */
+async function googlePlaceDetails(
+  placeId: string,
+): Promise<{ coord: Coordenada; label: string }> {
+  const key = getGooglePlacesKey();
+  const res = await fetch(`${PLACES_BASE}/places/${placeId}`, {
+    headers: {
+      "X-Goog-Api-Key": key,
+      "X-Goog-FieldMask": "location,displayName,formattedAddress",
+    },
+  });
+  if (!res.ok) throw new Error(`Google Place Details: HTTP ${res.status}`);
+  const data = (await res.json()) as PlaceDetailsResponse;
+  if (!data.location) throw new Error("Local sem coordenadas retornadas pela API.");
+  const coord: Coordenada = { lat: data.location.latitude, lon: data.location.longitude };
+  const label = data.formattedAddress ?? data.displayName?.text ?? placeId;
+  return { coord, label };
 }
 
 function distanciaEntre(a: Coordenada, b: Coordenada): number {
@@ -88,7 +159,7 @@ async function reverseGeocodeMapbox(lon: number, lat: number, token: string): Pr
 async function buscarDirections(
   origem: Coordenada,
   destino: Coordenada,
-  token: string
+  token: string,
 ): Promise<MapboxRoute> {
   const coords = `${origem.lon},${origem.lat};${destino.lon},${destino.lat}`;
   const url =
@@ -117,6 +188,121 @@ function criarMarcadorDestino(): HTMLElement {
   return el;
 }
 
+// ── SearchField ───────────────────────────────────────────────────────────────
+// Campo de busca com dropdown de sugestões da Google Places API.
+// Gerencia seu próprio estado "open" para não poluir o componente pai.
+
+type SearchFieldProps = {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (s: PlaceSuggestion) => void;
+  suggestions: PlaceSuggestion[];
+  buscando: boolean;
+  buscaErro: string | null;
+  placeholder: string;
+  pinColor: string;
+};
+
+function SearchField({
+  value,
+  onChange,
+  onSelect,
+  suggestions,
+  buscando,
+  buscaErro,
+  placeholder,
+  pinColor,
+}: SearchFieldProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative w-full">
+      {/* Input */}
+      <div
+        className="relative w-full rounded-xl border bg-[var(--bg-card)]"
+        style={{ borderColor: "var(--border-color)" }}
+      >
+        <input
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          className="w-full rounded-xl bg-transparent px-4 py-3 pr-10 text-sm outline-none"
+          style={{ color: "var(--text-primary)" }}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            // Atrasa o fechamento para que o onClick na sugestão dispare antes
+            setTimeout(() => setOpen(false), 150);
+          }}
+        />
+        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+          {buscando ? (
+            <Loader2
+              style={{ width: 14, height: 14, color: "var(--text-secondary)" }}
+              className="animate-spin"
+            />
+          ) : (
+            <MapPin style={{ width: 16, height: 16, color: pinColor }} />
+          )}
+        </div>
+      </div>
+
+      {/* Dropdown de sugestões */}
+      {open && suggestions.length > 0 && (
+        <ul
+          className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border shadow-lg"
+          style={{
+            backgroundColor: "var(--bg-card)",
+            borderColor: "var(--border-color)",
+          }}
+        >
+          {suggestions.map((s) => {
+            const main =
+              s.placePrediction.structuredFormat?.mainText.text ??
+              s.placePrediction.text.text;
+            const secondary =
+              s.placePrediction.structuredFormat?.secondaryText?.text;
+            return (
+              <li
+                key={s.placePrediction.placeId}
+                className="cursor-pointer px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-page)]"
+                // preventDefault impede que o onBlur do input feche o dropdown
+                // antes do onClick desta sugestão ser processado
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setOpen(false);
+                  onSelect(s);
+                }}
+              >
+                <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+                  {main}
+                </span>
+                {secondary && (
+                  <span className="ml-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+                    {secondary}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* Mensagem discreta de erro de busca */}
+      {buscaErro && (
+        <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+          ⚠️ {buscaErro}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Componente principal ──────────────────────────────────────────────────────
+
 export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) {
   const [origem, setOrigem] = useState<MapPoint | null>(null);
   const [destino, setDestino] = useState<MapPoint | null>(null);
@@ -126,13 +312,21 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
   const [mapPronto, setMapPronto] = useState(false);
   const [libsReady, setLibsReady] = useState(false);
 
+  // ── Estado da busca Google Places — origem ──────────────────────────────────
+  const [origemInput, setOrigemInput] = useState("");
+  const [origemSuggestions, setOrigemSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [origemBuscando, setOrigemBuscando] = useState(false);
+  const [origemBuscaErro, setOrigemBuscaErro] = useState<string | null>(null);
+
+  // ── Estado da busca Google Places — destino ─────────────────────────────────
+  const [destinoInput, setDestinoInput] = useState("");
+  const [destinoSuggestions, setDestinoSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [destinoBuscando, setDestinoBuscando] = useState(false);
+  const [destinoBuscaErro, setDestinoBuscaErro] = useState<string | null>(null);
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const origemGeocoderRef = useRef<HTMLDivElement>(null);
-  const destinoGeocoderRef = useRef<HTMLDivElement>(null);
   const libsRef = useRef<MapboxLibs | null>(null);
   const mapRef = useRef<MapInstance | null>(null);
-  const geocoderOrigemRef = useRef<GeocoderInstance | null>(null);
-  const geocoderDestinoRef = useRef<GeocoderInstance | null>(null);
   const markerOrigemRef = useRef<MarkerInstance | null>(null);
   const markerDestinoRef = useRef<MarkerInstance | null>(null);
   const lastRouteRef = useRef<MapboxRoute | null>(null);
@@ -140,26 +334,167 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
   const origemRef = useRef<MapPoint | null>(null);
   const destinoRef = useRef<MapPoint | null>(null);
 
+  // Timers de debounce para autocomplete
+  const origemDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const destinoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // AbortControllers para evitar condição de corrida entre requisições
+  const origemAbortRef = useRef<AbortController | null>(null);
+  const destinoAbortRef = useRef<AbortController | null>(null);
+
   const tipoVeiculo = vehicleType || "Carro";
 
-  useEffect(() => {
-    origemRef.current = origem;
-  }, [origem]);
+  useEffect(() => { origemRef.current = origem; }, [origem]);
+  useEffect(() => { destinoRef.current = destino; }, [destino]);
 
+  // Limpeza de timers e requisições em aberto ao desmontar
   useEffect(() => {
-    destinoRef.current = destino;
-  }, [destino]);
-
-  const aplicarPonto = useCallback((tipo: "origem" | "destino", coord: Coordenada, label: string) => {
-    const ponto: MapPoint = { coord, label };
-    if (tipo === "origem") {
-      setOrigem(ponto);
-      geocoderOrigemRef.current?.setInput(label);
-    } else {
-      setDestino(ponto);
-      geocoderDestinoRef.current?.setInput(label);
-    }
+    return () => {
+      if (origemDebounceRef.current) clearTimeout(origemDebounceRef.current);
+      if (destinoDebounceRef.current) clearTimeout(destinoDebounceRef.current);
+      origemAbortRef.current?.abort();
+      destinoAbortRef.current?.abort();
+    };
   }, []);
+
+  // ── aplicarPonto ────────────────────────────────────────────────────────────
+  // Atualiza o ponto selecionado (vindo da busca ou do clique no mapa)
+  // e sincroniza o texto do input correspondente.
+  const aplicarPonto = useCallback(
+    (tipo: "origem" | "destino", coord: Coordenada, label: string) => {
+      const ponto: MapPoint = { coord, label };
+      if (tipo === "origem") {
+        setOrigem(ponto);
+        setOrigemInput(label);
+        setOrigemSuggestions([]);
+        setOrigemBuscaErro(null);
+      } else {
+        setDestino(ponto);
+        setDestinoInput(label);
+        setDestinoSuggestions([]);
+        setDestinoBuscaErro(null);
+      }
+    },
+    [],
+  );
+
+  // ── Handlers de input com debounce + AbortController ───────────────────────
+  // Padrão anti-race-condition:
+  //   1. Cancela o timer anterior (requisição ainda não disparada).
+  //   2. Quando o timer dispara, aborta a requisição anterior em voo via
+  //      AbortController e inicia uma nova com um controller fresco.
+  //   3. Na resposta, verifica `signal.aborted` antes de atualizar o estado.
+  //   4. No catch, ignora erros de AbortError (são esperados ao cancelar).
+
+  const handleOrigemInputChange = useCallback((value: string) => {
+    setOrigemInput(value);
+    setOrigemBuscaErro(null);
+
+    if (!value.trim()) {
+      setOrigemSuggestions([]);
+      setOrigem(null);
+      if (origemDebounceRef.current) clearTimeout(origemDebounceRef.current);
+      origemAbortRef.current?.abort();
+      return;
+    }
+
+    if (origemDebounceRef.current) clearTimeout(origemDebounceRef.current);
+
+    origemDebounceRef.current = setTimeout(() => {
+      origemAbortRef.current?.abort();
+      const controller = new AbortController();
+      origemAbortRef.current = controller;
+
+      setOrigemBuscando(true);
+      void (async () => {
+        try {
+          const suggestions = await googlePlacesAutocomplete(value, controller.signal);
+          if (controller.signal.aborted) return;
+          setOrigemSuggestions(suggestions);
+          setOrigemBuscando(false);
+        } catch (e) {
+          if (e instanceof Error && e.name === "AbortError") return;
+          setOrigemSuggestions([]);
+          setOrigemBuscaErro("Busca indisponível no momento — tente clicar no mapa.");
+          setOrigemBuscando(false);
+        }
+      })();
+    }, DEBOUNCE_MS);
+  }, []);
+
+  const handleDestinoInputChange = useCallback((value: string) => {
+    setDestinoInput(value);
+    setDestinoBuscaErro(null);
+
+    if (!value.trim()) {
+      setDestinoSuggestions([]);
+      setDestino(null);
+      if (destinoDebounceRef.current) clearTimeout(destinoDebounceRef.current);
+      destinoAbortRef.current?.abort();
+      return;
+    }
+
+    if (destinoDebounceRef.current) clearTimeout(destinoDebounceRef.current);
+
+    destinoDebounceRef.current = setTimeout(() => {
+      destinoAbortRef.current?.abort();
+      const controller = new AbortController();
+      destinoAbortRef.current = controller;
+
+      setDestinoBuscando(true);
+      void (async () => {
+        try {
+          const suggestions = await googlePlacesAutocomplete(value, controller.signal);
+          if (controller.signal.aborted) return;
+          setDestinoSuggestions(suggestions);
+          setDestinoBuscando(false);
+        } catch (e) {
+          if (e instanceof Error && e.name === "AbortError") return;
+          setDestinoSuggestions([]);
+          setDestinoBuscaErro("Busca indisponível no momento — tente clicar no mapa.");
+          setDestinoBuscando(false);
+        }
+      })();
+    }, DEBOUNCE_MS);
+  }, []);
+
+  // ── handleSelecionarSugestao ────────────────────────────────────────────────
+  // Ao clicar numa sugestão: busca Place Details para obter lat/lon
+  // e repassa ao Mapbox Directions via aplicarPonto.
+  const handleSelecionarSugestao = useCallback(
+    async (tipo: "origem" | "destino", sugestao: PlaceSuggestion) => {
+      const { placeId, text } = sugestao.placePrediction;
+
+      // Fecha o dropdown imediatamente com o texto da sugestão
+      if (tipo === "origem") {
+        setOrigemInput(text.text);
+        setOrigemSuggestions([]);
+        setOrigemBuscando(true);
+        setOrigemBuscaErro(null);
+      } else {
+        setDestinoInput(text.text);
+        setDestinoSuggestions([]);
+        setDestinoBuscando(true);
+        setDestinoBuscaErro(null);
+      }
+
+      try {
+        const { coord, label } = await googlePlaceDetails(placeId);
+        aplicarPonto(tipo, coord, label);
+      } catch (e) {
+        console.error("Erro ao obter detalhes do lugar:", e);
+        const msg = "Busca indisponível no momento — tente clicar no mapa.";
+        if (tipo === "origem") setOrigemBuscaErro(msg);
+        else setDestinoBuscaErro(msg);
+      } finally {
+        if (tipo === "origem") setOrigemBuscando(false);
+        else setDestinoBuscando(false);
+      }
+    },
+    [aplicarPonto],
+  );
+
+  // ── Mapbox: desenho de rota e marcadores ────────────────────────────────────
 
   const desenharRota = useCallback((map: MapInstance, geometry: GeoJSON.LineString) => {
     const mapboxgl = libsRef.current?.mapboxgl;
@@ -193,7 +528,7 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
     if (coords.length > 0) {
       const bounds = coords.reduce(
         (b, c) => b.extend(c),
-        new mapboxgl.LngLatBounds(coords[0], coords[0])
+        new mapboxgl.LngLatBounds(coords[0], coords[0]),
       );
       map.fitBounds(bounds, { padding: 48, maxZoom: 14 });
     }
@@ -224,13 +559,15 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
         if (!markerDestinoRef.current) {
           markerDestinoRef.current = new mapboxgl.Marker({ element: criarMarcadorDestino() });
         }
-        markerDestinoRef.current.setLngLat([destinoPt.coord.lon, destinoPt.coord.lat]).addTo(map);
+        markerDestinoRef.current
+          .setLngLat([destinoPt.coord.lon, destinoPt.coord.lat])
+          .addTo(map);
       } else {
         markerDestinoRef.current?.remove();
         markerDestinoRef.current = null;
       }
     },
-    []
+    [],
   );
 
   const previewRota = useCallback(
@@ -252,14 +589,13 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
         setCarregandoRota(false);
       }
     },
-    [desenharRota, limparRota]
+    [desenharRota, limparRota],
   );
 
-  useEffect(() => {
-    if (!mapContainerRef.current || !origemGeocoderRef.current || !destinoGeocoderRef.current) return;
+  // ── Inicialização do mapa Mapbox ────────────────────────────────────────────
 
-    // Guard: prevent double-mount (React StrictMode / remount)
-    if (geocoderOrigemRef.current) return;
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
 
     let cancelled = false;
 
@@ -277,7 +613,7 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
         libsRef.current = libs;
         setLibsReady(true);
 
-        const { mapboxgl, MapboxGeocoder } = libs;
+        const { mapboxgl } = libs;
         mapboxgl.accessToken = token;
 
         const map = new mapboxgl.Map({
@@ -289,50 +625,11 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
 
         mapRef.current = map;
 
-        const geocoderOpts = {
-          accessToken: token,
-          mapboxgl,
-          countries: "br",
-          language: "pt",
-          marker: false,
-          flyTo: false,
-        };
-
-        const geocoderOrigem = new MapboxGeocoder({
-          ...geocoderOpts,
-          placeholder: "Ponto de partida",
-        });
-        const geocoderDestino = new MapboxGeocoder({
-          ...geocoderOpts,
-          placeholder: "Destino",
-        });
-
-        if (cancelled) return;
-
-        geocoderOrigem.addTo(origemGeocoderRef.current!);
-        geocoderDestino.addTo(destinoGeocoderRef.current!);
-        geocoderOrigemRef.current = geocoderOrigem;
-        geocoderDestinoRef.current = geocoderDestino;
-
-        geocoderOrigem.on("result", (e) => {
-          const [lon, lat] = e.result.center;
-          const label = e.result.place_name ?? "";
-          aplicarPonto("origem", { lat, lon }, label);
-        });
-
-        geocoderDestino.on("result", (e) => {
-          const [lon, lat] = e.result.center;
-          const label = e.result.place_name ?? "";
-          aplicarPonto("destino", { lat, lon }, label);
-        });
-
-        geocoderOrigem.on("clear", () => setOrigem(null));
-        geocoderDestino.on("clear", () => setDestino(null));
-
         map.on("load", () => {
           if (!cancelled) setMapPronto(true);
         });
 
+        // Clique no mapa: fallback manual quando a busca não encontra o ponto
         map.on("click", (e) => {
           void (async () => {
             const coord = { lat: e.lngLat.lat, lon: e.lngLat.lng };
@@ -359,6 +656,7 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
           })();
         });
 
+        // Geolocalização: preenche a origem automaticamente se o usuário autorizar
         if (!gpsTentado.current && navigator.geolocation) {
           gpsTentado.current = true;
           navigator.geolocation.getCurrentPosition(
@@ -371,9 +669,9 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
               });
             },
             () => {
-              // GPS negado — origem manual
+              // GPS negado ou indisponível — origem manual
             },
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
           );
         }
       } catch (e) {
@@ -389,14 +687,6 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
       markerDestinoRef.current?.remove();
       markerOrigemRef.current = null;
       markerDestinoRef.current = null;
-      // Remove geocoder instances from DOM before nullifying
-      geocoderOrigemRef.current?.remove?.();
-      geocoderDestinoRef.current?.remove?.();
-      geocoderOrigemRef.current = null;
-      geocoderDestinoRef.current = null;
-      // Clear container divs so a remount starts clean
-      if (origemGeocoderRef.current) origemGeocoderRef.current.innerHTML = "";
-      if (destinoGeocoderRef.current) destinoGeocoderRef.current.innerHTML = "";
       mapRef.current?.remove();
       mapRef.current = null;
       libsRef.current = null;
@@ -405,6 +695,7 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
     };
   }, [aplicarPonto]);
 
+  // Atualiza marcadores e preview de rota sempre que origem/destino mudam
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapPronto || !libsReady) return;
@@ -418,13 +709,15 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
     }
   }, [origem, destino, mapPronto, libsReady, previewRota, atualizarMarcadores, limparRota]);
 
+  // ── Handlers de UI ──────────────────────────────────────────────────────────
+
   const trocarOrigemDestino = () => {
     const o = origem;
     const d = destino;
     setOrigem(d);
     setDestino(o);
-    geocoderOrigemRef.current?.setInput(d?.label ?? "");
-    geocoderDestinoRef.current?.setInput(o?.label ?? "");
+    setOrigemInput(d?.label ?? "");
+    setDestinoInput(o?.label ?? "");
   };
 
   const handleCalcularRota = async () => {
@@ -450,12 +743,13 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
       const velocidadeBruta =
         route.duration > 0 ? distanciaKmExata / (route.duration / 3600) : 0;
       const velocidadeMediaKmh = Math.round(
-        velocidadeRealista(velocidadeBruta, tipoVeiculo, distanciaKmExata)
+        velocidadeRealista(velocidadeBruta, tipoVeiculo, distanciaKmExata),
       );
 
-      const temperatura = await buscarTemperaturaAtual(origem.coord.lat, origem.coord.lon).catch(
-        () => temperatureForPeriod(periodo)
-      );
+      const temperatura = await buscarTemperaturaAtual(
+        origem.coord.lat,
+        origem.coord.lon,
+      ).catch(() => temperatureForPeriod(periodo));
 
       onRotaCalculada({
         distanciaKm,
@@ -477,22 +771,25 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
     }
   };
 
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-3">
-      {/* Geocoder fields */}
+      {/* Campos de busca (Google Places) */}
       <div className="flex flex-col gap-2 mb-3">
         {/* Origem */}
-        <div
-          className="relative w-full rounded-xl border bg-[var(--bg-card)]"
-          style={{ borderColor: "var(--border-color)" }}
-        >
-          <div ref={origemGeocoderRef} className="w-full" />
-          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-            <MapPin style={{ width: 16, height: 16, color: "#16a34a" }} />
-          </div>
-        </div>
+        <SearchField
+          value={origemInput}
+          onChange={handleOrigemInputChange}
+          onSelect={(s) => void handleSelecionarSugestao("origem", s)}
+          suggestions={origemSuggestions}
+          buscando={origemBuscando}
+          buscaErro={origemBuscaErro}
+          placeholder="Ponto de partida"
+          pinColor="#16a34a"
+        />
 
-        {/* Swap button */}
+        {/* Botão de inversão */}
         <div className="flex justify-center">
           <button
             type="button"
@@ -510,18 +807,19 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
         </div>
 
         {/* Destino */}
-        <div
-          className="relative w-full rounded-xl border bg-[var(--bg-card)]"
-          style={{ borderColor: "var(--border-color)" }}
-        >
-          <div ref={destinoGeocoderRef} className="w-full" />
-          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-            <MapPin style={{ width: 16, height: 16, color: "#ef4444" }} />
-          </div>
-        </div>
+        <SearchField
+          value={destinoInput}
+          onChange={handleDestinoInputChange}
+          onSelect={(s) => void handleSelecionarSugestao("destino", s)}
+          suggestions={destinoSuggestions}
+          buscando={destinoBuscando}
+          buscaErro={destinoBuscaErro}
+          placeholder="Destino"
+          pinColor="#ef4444"
+        />
       </div>
 
-      {/* Calculate route button */}
+      {/* Botão calcular rota */}
       {origem && destino && (
         <Button
           type="button"
@@ -541,7 +839,7 @@ export function MapaRotaMapbox({ vehicleType, onRotaCalculada }: MapaRotaProps) 
         </Button>
       )}
 
-      {/* Map */}
+      {/* Mapa Mapbox (apenas renderização + Directions) */}
       <div
         className="relative w-full overflow-hidden rounded-xl border"
         style={{ height: 320, borderColor: "var(--border-color)" }}

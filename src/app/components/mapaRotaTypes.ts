@@ -21,5 +21,5 @@ export type MapaRotaProps = {
 
 export type MapboxLibs = {
   mapboxgl: typeof import("mapbox-gl").default;
-  MapboxGeocoder: typeof import("@mapbox/mapbox-gl-geocoder").default;
+  // MapboxGeocoder removido — busca migrada para Google Places API (New)
 };
